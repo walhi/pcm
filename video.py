@@ -23,29 +23,62 @@ def decodeFrame(frame):
     L = []
     R = []
     for line in range(0, (len(frame) - 7 * 16)):
-        if True:
+        if False:
+        #if True:
             #14 bit
-            L0 = (frame[line + 0][0] << 2)
-            R0 = (frame[line + 1][1] << 2)
-            L1 = (frame[line + 2][2] << 2)
-            R1 = (frame[line + 3][3] << 2)
-            L2 = (frame[line + 4][4] << 2)
-            R2 = (frame[line + 5][5] << 2)
-            P  = (frame[line + 6][6] << 2)
-            Q  = (frame[line + 7][7] << 2)
+            #L0 = frame[line +   0][0]
+            #R0 = frame[line +  16][1]
+            #L1 = frame[line +  32][2]
+            #R1 = frame[line +  48][3]
+            #L2 = frame[line +  64][4]
+            #R2 = frame[line +  80][5]
+            L0 = (frame[line +   0][0] << 2)
+            R0 = (frame[line +  16][1] << 2)
+            L1 = (frame[line +  32][2] << 2)
+            R1 = (frame[line +  48][3] << 2)
+            L2 = (frame[line +  64][4] << 2)
+            R2 = (frame[line +  80][5] << 2)
+            P  = (frame[line +  96][6] << 2)
+            Q  = (frame[line + 112][7] << 2)
 
         else:
             # 16bit
-            S  = frame[line + 7][7]
-            L0 = (frame[line + 0][0] << 2) | ((S >> 12) & 0b11)
-            R0 = (frame[line + 1][1] << 2) | ((S >> 10) & 0b11)
-            L1 = (frame[line + 2][2] << 2) | ((S >>  8) & 0b11)
-            R1 = (frame[line + 3][3] << 2) | ((S >>  6) & 0b11)
-            L2 = (frame[line + 4][4] << 2) | ((S >>  4) & 0b11)
-            R2 = (frame[line + 5][5] << 2) | ((S >>  2) & 0b11)
-            P  = (frame[line + 6][6] << 2) | ((S >>  0) & 0b11)
+            S  = frame[line + 112][7]
+            L0 = ((S >> 12) & 0b11) | (frame[line +  0][0])
+            R0 = ((S >> 10) & 0b11) | (frame[line + 16][1])
+            L1 = ((S >> 10) & 0b11) | (frame[line + 32][2])
+            R1 = ((S >> 10) & 0b11) | (frame[line + 48][3])
+            L2 = ((S >> 10) & 0b11) | (frame[line + 64][4])
+            R2 = ((S >> 10) & 0b11) | (frame[line + 80][5])
+            P  = ((S >> 10) & 0b11) | (frame[line + 96][6])
+            #L0 = (frame[line +  0][0] << 2) | ((S >> 12) & 0b11)
+            #R0 = (frame[line + 16][1] << 2) | ((S >> 10) & 0b11)
+            #L1 = (frame[line + 32][2] << 2) | ((S >>  8) & 0b11)
+            #R1 = (frame[line + 48][3] << 2) | ((S >>  6) & 0b11)
+            #L2 = (frame[line + 64][4] << 2) | ((S >>  4) & 0b11)
+            #R2 = (frame[line + 80][5] << 2) | ((S >>  2) & 0b11)
+            #P  = (frame[line + 96][6] << 2) | ((S >>  0) & 0b11)
 
-        #parityCheck = L0 ^ L1 ^ L2 ^ R0 ^ R1 ^ R2
+        parityCheck = L0 ^ L1 ^ L2 ^ R0 ^ R1 ^ R2
+
+        if (parityCheck != P):
+            print("L0 {0:06d} {1:>016b}".format(L0, frame[line +  0][0]))
+            print("L1 {0:06d} {1:>016b}".format(L1, frame[line + 16][1]))
+            print("L2 {0:06d} {1:>016b}".format(L2, frame[line + 32][2]))
+            print("R0 {0:06d} {1:>016b}".format(R0, frame[line + 48][3]))
+            print("R1 {0:06d} {1:>016b}".format(R1, frame[line + 64][4]))
+            print("R2 {0:06d} {1:>016b}".format(R2, frame[line + 80][5]))
+            #print("L0 {0:>016b}".format(L0))
+            #print("L1 {0:>016b}".format(L1))
+            #print("L2 {0:>016b}".format(L2))
+            #print("R0 {0:>016b}".format(R0))
+            #print("R1 {0:>016b}".format(R1))
+            #print("R2 {0:>016b}".format(R2))
+            #print("P  {0:>016b}".format(parity))
+            #print("PC {0:>016b}".format(parityCheck))
+            #exit()
+
+            print
 
         waveFile.writeframesraw(struct.pack('<h', np.int16(L0)))
         waveFile.writeframesraw(struct.pack('<h', np.int16(L1)))
@@ -65,7 +98,7 @@ video = cv2.VideoCapture(fileName)
 # TODO
 start  = 24
 end = 677
-pixelSize = 5.1015625
+pixelSize = 5#.1015625
 
 #fileName = fileName[:fileName.find(".")]
 
@@ -114,14 +147,14 @@ while(video.isOpened()):
 
             #todo .view(np.uint16)
             linePCM = []
-            linePCM.append(data[0][0] << 8 | data[0][1])
-            linePCM.append(data[1][0] << 8 | data[1][1])
-            linePCM.append(data[2][0] << 8 | data[2][1])
-            linePCM.append(data[3][0] << 8 | data[3][1])
-            linePCM.append(data[4][0] << 8 | data[4][1])
-            linePCM.append(data[5][0] << 8 | data[5][1])
-            linePCM.append(data[6][0] << 8 | data[6][1])
-            linePCM.append(data[7][0] << 8 | data[7][1])
+            linePCM.append(np.uint16(data[0][0]) << 8 | data[0][1])
+            linePCM.append(np.uint16(data[1][0]) << 8 | data[1][1])
+            linePCM.append(np.uint16(data[2][0]) << 8 | data[2][1])
+            linePCM.append(np.uint16(data[3][0]) << 8 | data[3][1])
+            linePCM.append(np.uint16(data[4][0]) << 8 | data[4][1])
+            linePCM.append(np.uint16(data[5][0]) << 8 | data[5][1])
+            linePCM.append(np.uint16(data[6][0]) << 8 | data[6][1])
+            linePCM.append(np.uint16(data[7][0]) << 8 | data[7][1])
             pcm.append(linePCM)
 
         return(pcm)
