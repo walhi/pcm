@@ -1,6 +1,7 @@
 #include "opencv2/opencv.hpp"
 #include <iostream>
 #include <cstdint>
+#include <sndfile.h>
 
 using namespace std;
 using namespace cv;
@@ -29,6 +30,8 @@ uint8_t PCMFrame[PCM_HEIGHT + PCM_STAIRS][PCM_WIDTH_BYTES];
 uint32_t stairsCount = 0;
 uint32_t crcErrorCount = 0;
 uint32_t parityErrorCount = 0;
+
+SNDFILE *outfile;
 
 static const uint16_t CRC_CCITT_TABLE[256] =
 {
@@ -66,6 +69,42 @@ static const uint16_t CRC_CCITT_TABLE[256] =
     0x6E17, 0x7E36, 0x4E55, 0x5E74, 0x2E93, 0x3EB2, 0x0ED1, 0x1EF0
 };
 
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#define for_endian(size) for (int i = 0; i < size; ++i)
+#elif __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#define for_endian(size) for (int i = size - 1; i >= 0; --i)
+#else
+#error "Endianness not detected"
+#endif
+
+#define printb(value)                                   \
+({                                                      \
+        typeof(value) _v = value;                       \
+        __printb((typeof(_v) *) &_v, sizeof(_v));       \
+})
+
+void __printb(void *value, size_t size)
+{
+        uint8_t byte;
+        size_t blen = sizeof(byte) * 8;
+        uint8_t bits[blen + 1];
+
+        bits[blen] = '\0';
+        for_endian(size) {
+                byte = ((uint8_t *) value)[i];
+                memset(bits, '0', blen);
+                for (int j = 0; byte && j < blen; ++j) {
+                        if (byte & 0x80)
+                                bits[j] = '1';
+                        byte <<= 1;
+                }
+                printf("%s ", bits);
+        }
+        //printf("\n");
+}
+
+
+
 uint16_t Calculate_CRC_CCITT(const uint8_t* buffer, int size)
 {
     uint16_t tmp;
@@ -85,66 +124,135 @@ int end = 677;
 float pixelSize = 5.1015625;
 
 void preparePCMFrame(Mat frame, uint8_t offset){
+	uint8_t *line;
 	for(int j = 0; j < PCM_HEIGHT; j++){
-		printf("ggg\n");
-		memset(PCMFrame[j + PCM_STAIRS], 0, PCM_WIDTH_BYTES);
+		line = PCMFrame[j + PCM_STAIRS];
+		memset(line, 0, PCM_WIDTH_BYTES);
 		for(int i = 0; i < PCM_WIDTH_BITS; i ++){
-			PCMFrame[j + PCM_STAIRS][i >> 3] |= PIXEL(frame, j + offset, (int)(i * pixelSize + start + 2)) << (7 - i & 0b111); // /8 and %8
+			line[i >> 3] |= PIXEL(frame, j * 2 + offset, (int)(i * pixelSize + start + 2)) << (7 - i & 0b111); // /8 and %8
 		}
-		uint16_t crcCheck = Calculate_CRC_CCITT(PCMFrame[j], 14);
-		uint16_t crcOriginal = PCMFrame[j][14] << 8 | PCMFrame[j][15];
-		if (crcCheck == crcOriginal)
-			printf("CRC OK");
-		else {
-			printf("CRC ERROR 0x%04x 0x%04x", crcOriginal, crcCheck);
+		uint16_t crcCheck = Calculate_CRC_CCITT(line, 14);
+		uint16_t crcOriginal = line[14] << 8 | line[15];
+		if (crcCheck != crcOriginal){
+			line[14] = 0;
+			line[15] = 0;
+			//printf("CRC ERROR 0x%04x 0x%04x\n", crcOriginal, crcCheck);
 			crcErrorCount++;
 		}
-		std::cout << std::endl;
+		//for(int i = 0; i < PCM_WIDTH_BYTES; i++)
+		//	printb(PCMFrame[j][i]);
+		//printf("\n");
 	}
 }
 
+#define L0 buf[0]
+#define R0 buf[1]
+#define L1 buf[2]
+#define R1 buf[3]
+#define L2 buf[4]
+#define R2 buf[5]
+
 void decodePCMFrame(){
+	uint16_t buf[6];
 	for(int j = 0; j < PCM_HEIGHT; j++){
+		/*
+		for(int i = 0; i < PCM_WIDTH_BYTES; i++)
+			printb(PCMFrame[j + L0_POS][i]);
+		printf("\n");
+		for(int i = 0; i < PCM_WIDTH_BYTES; i++)
+			printb(PCMFrame[j + R0_POS][i]);
+		printf("\n");
+		for(int i = 0; i < PCM_WIDTH_BYTES; i++)
+			printb(PCMFrame[j + L1_POS][i]);
+		printf("\n");
+		for(int i = 0; i < PCM_WIDTH_BYTES; i++)
+			printb(PCMFrame[j + R1_POS][i]);
+		printf("\n");
+		for(int i = 0; i < PCM_WIDTH_BYTES; i++)
+			printb(PCMFrame[j + L2_POS][i]);
+		printf("\n");
+		for(int i = 0; i < PCM_WIDTH_BYTES; i++)
+			printb(PCMFrame[j + R2_POS][i]);
+		printf("\n");
+		for(int i = 0; i < PCM_WIDTH_BYTES; i++)
+			printb(PCMFrame[j + P_POS][i]);
+		printf("\n");
+		*/
 		stairsCount++;
+
 		//printf("%d\n", j);
-		uint16_t L0 = (PCMFrame[j + L0_POS][0] << 6) | ((PCMFrame[j + L0_POS][1] >> 2) & 0x3f);
-		uint16_t R0 = ((PCMFrame[j + R0_POS][1] & 0x03) << 12) | (PCMFrame[j + R0_POS][2] << 4) | ((PCMFrame[j + R0_POS][3] >> 4) & 0x0f);
-		uint16_t L1 = ((PCMFrame[j + L1_POS][3] & 0x04) << 10) | (PCMFrame[j + L1_POS][4] << 2) | ((PCMFrame[j + L1_POS][5] >> 6) & 0x03);
-		uint16_t R1 = ((PCMFrame[j + R1_POS][5] & 0x3f) << 8) | (PCMFrame[j + R1_POS][6]);
-		uint16_t L2 = (PCMFrame[j + L2_POS][7] << 6) | ((PCMFrame[j + L2_POS][8] >> 2) & 0x3f);
-		uint16_t R2 = ((PCMFrame[j + R2_POS][8] & 0x03) << 12) | (PCMFrame[j + R2_POS][9] << 4) | ((PCMFrame[j + R2_POS][10] >> 4) & 0x0f);
-		uint16_t P  = ((PCMFrame[j + P_POS][10] & 0x04) << 10) | (PCMFrame[j + P_POS][11] << 2) | ((PCMFrame[j + P_POS][12] >> 6) & 0x03);
-		uint16_t Q  = ((PCMFrame[j + Q_POS][12] & 0x3f) << 8) | (PCMFrame[j + Q_POS][13]);
+
+		L0 = (( PCMFrame[j + L0_POS][0] << 6)          | (PCMFrame[j + L0_POS][1] >> 2)) << 2;
+		R0 = (((PCMFrame[j + R0_POS][1] & 0x03) << 12) | (PCMFrame[j + R0_POS][2] << 4) | (PCMFrame[j + R0_POS][3] >> 4)) << 2;
+		L1 = (((PCMFrame[j + L1_POS][3] & 0x0f) << 10) | (PCMFrame[j + L1_POS][4] << 2) | (PCMFrame[j + L1_POS][5] >> 6)) << 2;
+		R1 = (((PCMFrame[j + R1_POS][5] & 0x3f) << 8)  | (PCMFrame[j + R1_POS][6]     )) << 2;
+		L2 = (( PCMFrame[j + L2_POS][7] << 6)          | (PCMFrame[j + L2_POS][8] >> 2)) << 2;
+		R2 = (((PCMFrame[j + R2_POS][8] & 0x03) << 12) | (PCMFrame[j + R2_POS][9] << 4) | (PCMFrame[j + R2_POS][10] >> 4)) << 2;
+		uint16_t P  = (((PCMFrame[j + P_POS][10] & 0x0f) << 10) | (PCMFrame[j + P_POS][11] << 2) | ((PCMFrame[j + P_POS][12] >> 6) & 0x03)) << 2;
+		uint16_t Q  = (((PCMFrame[j + Q_POS][12] & 0x3f) << 8) | (PCMFrame[j + Q_POS][13])) << 2;
 
 		// 16 бит PCM
-		if (1){
-			L0 = (L0 << 2) | ((PCMFrame[j + L0_POS][12] >> 4) & 0x03);
-			R0 = (R0 << 2) | ((PCMFrame[j + R0_POS][12] >> 2) & 0x03);
-			L1 = (L1 << 2) | ((PCMFrame[j + L1_POS][12] >> 0) & 0x03);
-			R1 = (R1 << 2) | ((PCMFrame[j + R1_POS][13] >> 6) & 0x03);
-			L2 = (L2 << 2) | ((PCMFrame[j + L2_POS][13] >> 4) & 0x03);
-			R2 = (R2 << 2) | ((PCMFrame[j + R2_POS][13] >> 2) & 0x03);
-			P  = (P  << 2) | ((PCMFrame[j +  P_POS][13] >> 0) & 0x03);
+		if (0){
+			L0 |= (PCMFrame[j + L0_POS][12] >> 4) & 0x03;
+			R0 |= (PCMFrame[j + R0_POS][12] >> 2) & 0x03;
+			L1 |= (PCMFrame[j + L1_POS][12] >> 0) & 0x03;
+			R1 |= (PCMFrame[j + R1_POS][13] >> 6) & 0x03;
+			L2 |= (PCMFrame[j + L2_POS][13] >> 4) & 0x03;
+			R2 |= (PCMFrame[j + R2_POS][13] >> 2) & 0x03;
+			P  |= (PCMFrame[j +  P_POS][13] >> 0) & 0x03;
 		}
+
+		//for(int i = 0; i < 6; i++){
+		//	printb(buf[i]);
+		//	//printf("%04x\n", buf[i]);
+		//	printf("\n");
+		//}
+
+		uint8_t crcErrors = PCMFrame[j + L0_POS][15]?0:1 + PCMFrame[j + R0_POS][15]?0:1 + PCMFrame[j + L1_POS][15]?0:1 + PCMFrame[j + R1_POS][15]?0:1 + PCMFrame[j + L2_POS][15]?0:1 + PCMFrame[j + R2_POS][15]?0:1 + PCMFrame[j + P_POS][15]?0:1;
+		//printf("%04x\n", buf[i]);;
 
 		uint16_t PC = L0 ^ R0 ^ L1 ^ R1 ^ L2 ^ R2;
 		if (P != PC){
+			//printb(P);
+			//printf("\n");
+			//printb(PC);
+			//printf("\n");
 			parityErrorCount++;
-			printf("Parity error\n");
+			if (crcErrors)
+				memset(buf, 0, sizeof(buf));
+			//printf("Parity error\n");
 		}
+
+		//printf("\n" );
+		sf_write_short(outfile, (int16_t *)buf, 6);
 	}
 }
+
+SF_INFO sfinfo;
 
 int main(){
 
   // Create a VideoCapture object and open the input file
   // If the input is the web camera, pass 0 instead of the video file name
-  VideoCapture cap("OVER9000!!!.avi");
+  //VideoCapture cap("sine_1khz_16b_.avi");
+  VideoCapture cap("sine_1kz_16b.avi");
+  //VideoCapture cap("OVER9000!!!.avi");
 
   // Check if camera opened successfully
   if(!cap.isOpened()){
     cout << "Error opening video stream or file" << endl;
     return -1;
+  }
+
+
+	memset (&sfinfo, 0, sizeof (sfinfo)) ;
+	sfinfo.samplerate	= 44100;
+	//sfinfo.frames   = 100;
+	sfinfo.channels = 2 ;
+	sfinfo.format   = (SF_FORMAT_WAV | SF_FORMAT_PCM_16) ;
+
+	if ((outfile = sf_open ("test.wav", SFM_WRITE, &sfinfo)) == NULL){
+    exit (1) ;
   }
 
   while(1){
@@ -160,18 +268,18 @@ int main(){
 
     threshold(frame, dst, 79, 255, THRESH_BINARY);
 
-		// memcpy(&(PCMFrame[0]), &(PCMFrame[PCM_HEIGHT - PCM_STAIRS]), (100 * PCM_WIDTH))
-		printf("ggg %d\n", sizeof(PCMFrame));
-
 		preparePCMFrame(dst, 0);
-		SWAP_PCM_FRAME();
-		preparePCMFrame(dst, 1);
+		decodePCMFrame();
 		SWAP_PCM_FRAME();
 
-		break;
+		preparePCMFrame(dst, 1);
+		decodePCMFrame();
+		SWAP_PCM_FRAME();
+
+		//break;
 
     // Display the resulting frame
-    imshow( "Frame", dst);
+    //imshow( "Frame", dst);
 
     // Press  ESC on keyboard to exit
     char c=(char)waitKey(25);
@@ -185,5 +293,13 @@ int main(){
   // Closes all the frames
   destroyAllWindows();
 
-  return 0;
+	sfinfo.frames = stairsCount * 3;
+  sf_close(outfile);
+
+
+	printf("Stairs count: %d\n", stairsCount);
+	printf("CRC errors count: %d\n", crcErrorCount);
+	printf("Parity errors count: %d\n", parityErrorCount);
+
+	return 0;
 }
