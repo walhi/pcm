@@ -17,8 +17,9 @@ int main(){
   // Create a VideoCapture object and open the input file
   // If the input is the web camera, pass 0 instead of the video file name
   //VideoCapture cap("sine_1khz_16b_.avi");
-  //VideoCapture cap("sine_1kz_16b.avi");
-	VideoCapture cap("sin_walhi_1khz_.avi");
+  VideoCapture cap("16b.avi");
+	//VideoCapture cap("sine_1kz_16b.avi");
+	//VideoCapture cap("sin_walhi_1khz.avi");
 	//VideoCapture cap("OVER9000!!!.avi");
 
   // Check if camera opened successfully
@@ -26,7 +27,6 @@ int main(){
     cout << "Error opening video stream or file" << endl;
     return -1;
   }
-
 
 	memset (&sfinfo, 0, sizeof (sfinfo)) ;
 	sfinfo.samplerate	= 44100;
@@ -51,10 +51,10 @@ int main(){
 
     threshold(frame, dst, 79, 255, THRESH_BINARY);
 
-		preparePCMFrame(dst, 1);
+		preparePCMFrame(dst, 0);
 		decodePCMFrame(outfile);
 
-		preparePCMFrame(dst, 0);
+		preparePCMFrame(dst, 1);
 		decodePCMFrame(outfile);
 
     //imshow( "Frame", dst);
