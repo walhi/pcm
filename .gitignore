@@ -127,3 +127,11 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+*.avi
+*.mp4
+*.wav
+*~
+*.o
+*log
+*.png

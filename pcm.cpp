@@ -34,7 +34,7 @@ uint16_t buf[6];
 uint16_t P;
 uint16_t Q;
 
-void readBlock(uint16_t j){
+void readBlock(uint16_t j, bool type){
 	L0 = (( PCMFrame[j + L0_POS][0] << 6)          | (PCMFrame[j + L0_POS][1] >> 2)) << 2;
 	R0 = (((PCMFrame[j + R0_POS][1] & 0x03) << 12) | (PCMFrame[j + R0_POS][2] << 4) | (PCMFrame[j + R0_POS][3] >> 4)) << 2;
 	L1 = (((PCMFrame[j + L1_POS][3] & 0x0f) << 10) | (PCMFrame[j + L1_POS][4] << 2) | (PCMFrame[j + L1_POS][5] >> 6)) << 2;
@@ -45,7 +45,7 @@ void readBlock(uint16_t j){
 	Q  = (((PCMFrame[j + Q_POS][12] & 0x3f) << 8) | (PCMFrame[j + Q_POS][13])) << 2;
 
 	// 16 бит PCM
-	if (1){
+	if (type){
 		L0 |= (PCMFrame[j + L0_POS][12] >> 4) & 0x03;
 		R0 |= (PCMFrame[j + R0_POS][12] >> 2) & 0x03;
 		L1 |= (PCMFrame[j + L1_POS][12] >> 0) & 0x03;
@@ -146,12 +146,12 @@ void preparePCMFrame(cv::Mat frame, uint8_t offset){
 }
 
 
-void decodePCMFrame(SNDFILE *outfile){
+void decodePCMFrame(SNDFILE *outfile, bool type){
 	//printf("\n");
 	//printFrame();
 	for(int j = 0; j < PCM_HEIGHT; j++){
 		stairsCount++;
-		readBlock(j);
+		readBlock(j, type);
 
 		uint8_t crcErrors = 0;
 		if (!PCMFrame[j + L0_POS][15]){crcErrors++; /*printf("L0\n");*/}
@@ -191,15 +191,15 @@ uint32_t samplesCount(void){
 void printFrame(void){
 	for(int j = 0; j < PCM_HEIGHT + PCM_STAIRS; j++){
 		for(int i = 0; i < PCM_WIDTH_BYTES; i++){
-			printf("0x%02x ", PCMFrame[j][i]);
+			fprintf(stderr, "0x%02x ", PCMFrame[j][i]);
 		}
-		printf("\n");
+		fprintf(stderr, "\n");
 	}
-	printf("\n");
+	fprintf(stderr, "\n");
 }
 
 void showStatistics(void){
-	printf("Stairs count: %d\n", stairsCount);
-	printf("CRC errors count: %d\n", crcErrorCount);
-	printf("Parity errors count: %d\n", parityErrorCount);
+	fprintf(stderr, "Stairs count: %d\n", stairsCount);
+	fprintf(stderr, "CRC errors count: %d\n", crcErrorCount);
+	fprintf(stderr, "Parity errors count: %d\n", parityErrorCount);
 }

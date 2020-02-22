@@ -12,19 +12,56 @@ using namespace cv;
 SNDFILE *outfile;
 SF_INFO sfinfo;
 
-int main(){
+void showHelp(void){
+	std::cout << "Usage: -i input_file -o output_file [-s/16] " << endl;
+	std::cout << "-i\tavi, mp4..." << endl;
+	std::cout << "-o\t*.wav or - for use pipe" << endl;
+	std::cout << "-s\tfor show input video" << endl;
+	std::cout << "-16\tuse 16 bit pcm. Default - 14 bit" << endl;
+}
+
+int main(int argc, char *argv[]){
+
+	char  *inFileName = NULL;
+	char *outFileName = NULL;
+	bool show = false;
+	bool b16 = false;
+
+	if (argc == 1){
+		showHelp();
+		return 1;
+	}
+
+	// Перебираем каждый аргумент и выводим его порядковый номер и значение
+	for (int i=0; i < argc; i++){
+		if (strcmp(argv[i], "-i") == 0)  inFileName = argv[i + 1];
+		if (strcmp(argv[i], "-o") == 0) outFileName = argv[i + 1];
+		if (strcmp(argv[i], "-16") == 0) b16 = true;
+		if (strcmp(argv[i], "-s") == 0) show = true;
+		if ((strcmp(argv[i], "-h") == 0) || (strcmp(argv[i], "--help") == 0)) {
+			showHelp();
+			return 0;
+		}
+		//std::cout << count << " " << argv[i] << '\n';
+	}
+
+	if (inFileName == NULL){
+		showHelp();
+		return 1;
+	}
+
+	if (outFileName == NULL){
+		showHelp();
+		return 1;
+	}
 
   // Create a VideoCapture object and open the input file
   // If the input is the web camera, pass 0 instead of the video file name
-  //VideoCapture cap("sine_1khz_16b_.avi");
-  VideoCapture cap("16b.avi");
-	//VideoCapture cap("sine_1kz_16b.avi");
-	//VideoCapture cap("sin_walhi_1khz.avi");
-	//VideoCapture cap("OVER9000!!!.avi");
+  VideoCapture cap(inFileName);
 
   // Check if camera opened successfully
   if(!cap.isOpened()){
-    cout << "Error opening video stream or file" << endl;
+    cerr << "Error opening video stream or file" << endl;
     return -1;
   }
 
@@ -32,9 +69,14 @@ int main(){
 	sfinfo.samplerate	= 44100;
 	//sfinfo.frames   = 100;
 	sfinfo.channels = 2 ;
-	sfinfo.format   = (SF_FORMAT_WAV | SF_FORMAT_PCM_16) ;
+	if (strcmp(outFileName, "-") == 0){
+		sfinfo.format   = (SF_FORMAT_AU | SF_FORMAT_PCM_16);
+	} else {
+		sfinfo.format   = (SF_FORMAT_WAV | SF_FORMAT_PCM_16);
+	}
 
-	if ((outfile = sf_open ("test.wav", SFM_WRITE, &sfinfo)) == NULL){
+
+	if ((outfile = sf_open (outFileName, SFM_WRITE, &sfinfo)) == NULL){
     exit (1) ;
   }
 
@@ -52,12 +94,14 @@ int main(){
     threshold(frame, dst, 79, 255, THRESH_BINARY);
 
 		preparePCMFrame(dst, 0);
-		decodePCMFrame(outfile);
+		decodePCMFrame(outfile, b16);
 
 		preparePCMFrame(dst, 1);
-		decodePCMFrame(outfile);
+		decodePCMFrame(outfile, b16);
 
-    //imshow( "Frame", dst);
+    //imshow("Frame", dst);
+		if (show)
+			imshow("Frame", frame);
 
     // Press  ESC on keyboard to exit
     char c=(char)waitKey(25);

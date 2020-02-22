@@ -21,7 +21,7 @@
 
 void init();
 
-void decodePCMFrame(SNDFILE *outfile);
+void decodePCMFrame(SNDFILE *outfile, bool type);
 
 void preparePCMFrame(cv::Mat frame, uint8_t offset);
 
