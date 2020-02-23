@@ -1,8 +1,15 @@
 CC=g++
+
 CFLAGS=-c -Wall
-LDFLAGS=-lopencv_core -lopencv_imgproc -lopencv_highgui -lopencv_ml -lopencv_video -lopencv_features2d -lopencv_calib3d -lopencv_objdetect -lopencv_contrib -lopencv_legacy -lopencv_stitching -lsndfile -lasound
+LDFLAGS=  -lopencv_core
+LDFLAGS+= -lopencv_imgproc
+LDFLAGS+= -lopencv_highgui
+LDFLAGS+= -lopencv_video
+LDFLAGS+= -lsndfile
+
 SOURCES=video.cpp pcm.cpp crc.cpp
 OBJECTS=$(SOURCES:.cpp=.o)
+
 EXECUTABLE=ggg
 
 all: $(SOURCES) $(EXECUTABLE)
