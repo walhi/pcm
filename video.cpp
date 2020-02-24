@@ -17,7 +17,9 @@ void showHelp(void){
 	std::cout << "-i\tavi, mp4..." << endl;
 	std::cout << "-o\t*.wav or - for use pipe" << endl;
 	std::cout << "-s\tfor show input video" << endl;
+	std::cout << "-b\tfor show video after binarization" << endl;
 	std::cout << "-16\tuse 16 bit pcm. Default - 14 bit" << endl;
+	std::cout << "-f\tfor use Full PCM Frame" << endl;
 }
 
 int main(int argc, char *argv[]){
@@ -25,7 +27,13 @@ int main(int argc, char *argv[]){
 	char  *inFileName = NULL;
 	char *outFileName = NULL;
 	bool show = false;
+	bool showBin = false;
 	bool b16 = false;
+	bool fullPCM = false;
+
+	bool useDevice = false;
+
+	int deviceID;
 
 	if (argc == 1){
 		showHelp();
@@ -36,8 +44,17 @@ int main(int argc, char *argv[]){
 	for (int i=0; i < argc; i++){
 		if (strcmp(argv[i], "-i") == 0)  inFileName = argv[i + 1];
 		if (strcmp(argv[i], "-o") == 0) outFileName = argv[i + 1];
+		if (strcmp(argv[i], "-d") == 0) {
+			useDevice = true;
+			deviceID = std::stoi(argv[i + 1]);
+		}
 		if (strcmp(argv[i], "-16") == 0) b16 = true;
 		if (strcmp(argv[i], "-s") == 0) show = true;
+		if (strcmp(argv[i], "-f") == 0) fullPCM= true;
+		if (strcmp(argv[i], "-b") == 0) {
+			show = true;
+			showBin = true;
+		}
 		if ((strcmp(argv[i], "-h") == 0) || (strcmp(argv[i], "--help") == 0)) {
 			showHelp();
 			return 0;
@@ -45,7 +62,7 @@ int main(int argc, char *argv[]){
 		//std::cout << count << " " << argv[i] << '\n';
 	}
 
-	if (inFileName == NULL){
+	if (inFileName == NULL && !useDevice){
 		showHelp();
 		return 1;
 	}
@@ -57,7 +74,12 @@ int main(int argc, char *argv[]){
 
   // Create a VideoCapture object and open the input file
   // If the input is the web camera, pass 0 instead of the video file name
-  VideoCapture cap(inFileName);
+	VideoCapture cap;
+	if (useDevice) {
+		cap.open(deviceID);
+	} else {
+		cap.open(inFileName);
+	}
 
   // Check if camera opened successfully
   if(!cap.isOpened()){
@@ -93,15 +115,17 @@ int main(int argc, char *argv[]){
 
     threshold(frame, dst, 79, 255, THRESH_BINARY);
 
-		preparePCMFrame(dst, 0);
+		preparePCMFrame(dst, 0, fullPCM);
 		decodePCMFrame(outfile, b16);
 
-		preparePCMFrame(dst, 1);
+		preparePCMFrame(dst, 1, fullPCM);
 		decodePCMFrame(outfile, b16);
 
-    //imshow("Frame", dst);
 		if (show)
-			imshow("Frame", frame);
+			if (showBin)
+				imshow("Frame", dst);
+			else
+				imshow("Frame", frame);
 
     // Press  ESC on keyboard to exit
     char c=(char)waitKey(25);
