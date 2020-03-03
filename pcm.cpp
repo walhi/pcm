@@ -56,6 +56,50 @@ void readBlock(uint16_t j, bool type){
 	}
 }
 
+void writeBlock(uint16_t j, bool type){
+	// Не пытайтесь это читать... Сломаетесь...
+	PCMFrame[j + L0_POS][ 0]  = L0 >> 8;
+	PCMFrame[j + L0_POS][ 1]  = L0 & 0xfc;
+
+	PCMFrame[j + R0_POS][ 1] |= (R0 >> 14) & 0x3;
+	PCMFrame[j + R0_POS][ 2]  = (R0 >> 6)  & 0xff;
+	PCMFrame[j + R0_POS][ 3]  = (R0 << 2)  & 0xf0;
+
+	PCMFrame[j + L1_POS][ 3] |= (L1 >> 12) & 0x0f;
+	PCMFrame[j + L1_POS][ 4]  = (L1 >> 4)  & 0xff;
+	PCMFrame[j + L1_POS][ 5]  = (L1 << 6)  & 0xc0;
+
+	PCMFrame[j + R1_POS][ 5] |= (R1 >> 10) & 0x3f;
+	PCMFrame[j + R1_POS][ 6]  = (R1 >> 2)  & 0xff;
+
+	PCMFrame[j + L0_POS][ 7]  = L2 >> 8;
+	PCMFrame[j + L0_POS][ 8]  = L2 & 0xfc;
+
+	PCMFrame[j + R0_POS][ 8] |= (R2 >> 14) & 0x3;
+	PCMFrame[j + R0_POS][ 9]  = (R2 >> 6)  & 0xff;
+	PCMFrame[j + R0_POS][10]  = (R2 << 2)  & 0xf0;
+
+	PCMFrame[j + L1_POS][10] |= (P  >> 12) & 0x0f;
+	PCMFrame[j + L1_POS][11]  = (P  >> 4)  & 0xff;
+	PCMFrame[j + L1_POS][12]  = (P  << 6)  & 0xc0;
+
+
+	// 16 бит PCM
+	if (type){
+		PCMFrame[j + L0_POS][12] |= (L0 & 0x03) << 4;
+		PCMFrame[j + R0_POS][12] |= (R0 & 0x03) << 2;
+		PCMFrame[j + L1_POS][12] |= (L1 & 0x03);
+		PCMFrame[j + R1_POS][13] |= (R1 & 0x03) << 6;
+		PCMFrame[j + L2_POS][13] |= (L2 & 0x03) << 4;
+		PCMFrame[j + R2_POS][13] |= (R2 & 0x03) << 2;
+		PCMFrame[j +  P_POS][13] |= (P  & 0x03);
+	} else {
+		PCMFrame[j + R1_POS][12] |= (Q  >> 10) & 0x3f;
+		PCMFrame[j + R1_POS][13]  = (Q  >> 2)  & 0xff;
+	}
+
+}
+
 
 
 void preparePCMFrame(cv::Mat frame, uint8_t offset, bool full){

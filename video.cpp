@@ -13,7 +13,7 @@ SNDFILE *outfile;
 SF_INFO sfinfo;
 
 void showHelp(void){
-	std::cout << "Usage: -i input_file -o output_file [-s/16] " << endl;
+	std::cout << "Usage: -i input_file -o output_file [-s/b/f/16] " << endl;
 	std::cout << "-i\tavi, mp4..." << endl;
 	std::cout << "-o\t*.wav or - for use pipe" << endl;
 	std::cout << "-s\tfor show input video" << endl;
@@ -67,7 +67,7 @@ int main(int argc, char *argv[]){
 		return 1;
 	}
 
-	if (outFileName == NULL){
+	if (outFileName == NULL && !show){
 		showHelp();
 		return 1;
 	}
@@ -87,20 +87,23 @@ int main(int argc, char *argv[]){
     return -1;
   }
 
-	memset (&sfinfo, 0, sizeof (sfinfo)) ;
-	sfinfo.samplerate	= 44100;
-	//sfinfo.frames   = 100;
-	sfinfo.channels = 2 ;
-	if (strcmp(outFileName, "-") == 0){
-		sfinfo.format   = (SF_FORMAT_AU | SF_FORMAT_PCM_16);
-	} else {
-		sfinfo.format   = (SF_FORMAT_WAV | SF_FORMAT_PCM_16);
+	if (outFileName != NULL){
+		memset (&sfinfo, 0, sizeof (sfinfo)) ;
+		sfinfo.samplerate	= 44100;
+		//sfinfo.frames   = 100;
+		sfinfo.channels = 2 ;
+		if (strcmp(outFileName, "-") == 0){
+			sfinfo.format   = (SF_FORMAT_AU | SF_FORMAT_PCM_16);
+		} else {
+			sfinfo.format   = (SF_FORMAT_WAV | SF_FORMAT_PCM_16);
+		}
+
+
+		if ((outfile = sf_open (outFileName, SFM_WRITE, &sfinfo)) == NULL){
+			exit (1) ;
+		}
 	}
 
-
-	if ((outfile = sf_open (outFileName, SFM_WRITE, &sfinfo)) == NULL){
-    exit (1) ;
-  }
 
   while(1){
 
@@ -108,29 +111,36 @@ int main(int argc, char *argv[]){
 		Mat dst;
     // Capture frame-by-frame
     cap >> frame;
+		//bool bSuccess = cap.read(frame);
 
-    // If the frame is empty, break immediately
-    if (frame.empty())
+		// If the frame is empty, break immediately
+		//if (!bSuccess)
+		if (frame.empty())
       break;
 
     threshold(frame, dst, 79, 255, THRESH_BINARY);
 
-		preparePCMFrame(dst, 0, fullPCM);
-		decodePCMFrame(outfile, b16);
+		if (outFileName != NULL){
+			preparePCMFrame(dst, 0, fullPCM);
+			decodePCMFrame(outfile, b16);
 
-		preparePCMFrame(dst, 1, fullPCM);
-		decodePCMFrame(outfile, b16);
+			preparePCMFrame(dst, 1, fullPCM);
+			decodePCMFrame(outfile, b16);
+		}
 
-		if (show)
-			if (showBin)
+		if (show){
+			if (showBin){
 				imshow("Frame", dst);
-			else
+			} else {
 				imshow("Frame", frame);
+			}
+			// Press  ESC on keyboard to exit
+			char c=(char)waitKey(25);
+			if(c==27)
+				break;
+		}
 
-    // Press  ESC on keyboard to exit
-    char c=(char)waitKey(25);
-    if(c==27)
-      break;
+
   }
 
   // When everything done, release the video capture object
