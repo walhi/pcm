@@ -22,7 +22,7 @@ SF_INFO sfinfo;
 void showHelp(void){
 	std::cout << "Usage: -i input_file -o output_file [-s/b/f/16] " << endl;
 	std::cout << "-i\t*.wav" << endl;
-	//std::cout << "-o\tavi, mp4..." << endl;
+	std::cout << "-o\t*.avi" << endl;
 	std::cout << "-v\tfor show output video" << endl;
 	std::cout << "-16\tuse 16 bit pcm. Default - 14 bit" << endl;
 	std::cout << "-f\tfor use Full PCM Frame" << endl;
@@ -30,7 +30,8 @@ void showHelp(void){
 }
 
 int main(int argc, char *argv[]){
-	char *inFileName = NULL;
+	char  *inFileName = NULL;
+	char *outFileName = NULL;
 	bool b16 = false;
 	bool show = false;
 	bool step = false;
@@ -43,7 +44,7 @@ int main(int argc, char *argv[]){
 
 	for (int i=0; i < argc; i++){
 		if (strcmp(argv[i], "-i") == 0)  inFileName = argv[i + 1];
-		//if (strcmp(argv[i], "-o") == 0) outFileName = argv[i + 1];
+		if (strcmp(argv[i], "-o") == 0) outFileName = argv[i + 1];
 		//if (strcmp(argv[i], "-d") == 0) {
 		//	useDevice = true;
 		//	deviceID = std::stoi(argv[i + 1]);
@@ -72,10 +73,20 @@ int main(int argc, char *argv[]){
 		return 1;
 	}
 
+	if (outFileName == NULL && !show){
+		showHelp();
+		return 1;
+	}
+
 	if (inFileName != NULL){
 		if ((infile = sf_open (inFileName, SFM_READ, &sfinfo)) == NULL){
 			exit (1) ;
 		}
+	}
+
+	VideoWriter video;
+	if (outFileName != NULL){
+		video.open(outFileName, CV_FOURCC('D','I','V','X'), 29.97, Size(720, 525), false);
 	}
 
 	uint16_t count = 0;
@@ -100,6 +111,10 @@ int main(int argc, char *argv[]){
 
 		resize(frame, dst, dst.size(), 5, 0, INTER_NEAREST);
 
+		if (video.isOpened()){
+			video.write(dst);
+		}
+
 		if (show){
 			imshow("Frame", dst);
 			if (step){
@@ -117,6 +132,11 @@ int main(int argc, char *argv[]){
 			}
 		}
 	}
+
+	if (video.isOpened()){
+		video.release();
+	}
+
 	auto end = chrono::steady_clock::now();
 	float sec = chrono::duration_cast<chrono::milliseconds>(end - start).count() / 1000.0;
 	std::cout << "Count frames: " << (uint32_t)count << std::endl;
