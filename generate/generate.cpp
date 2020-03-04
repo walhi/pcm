@@ -7,7 +7,6 @@
 #include <chrono>
 #include <ctime>
 
-
 using namespace std;
 using namespace cv;
 
@@ -22,17 +21,19 @@ SF_INFO sfinfo;
 
 void showHelp(void){
 	std::cout << "Usage: -i input_file -o output_file [-s/b/f/16] " << endl;
-	std::cout << "-i\tavi, mp4..." << endl;
-	std::cout << "-o\t*.wav or - for use pipe" << endl;
-	std::cout << "-s\tfor show input video" << endl;
-	std::cout << "-b\tfor show video after binarization" << endl;
+	std::cout << "-i\t*.wav" << endl;
+	//std::cout << "-o\tavi, mp4..." << endl;
+	std::cout << "-v\tfor show output video" << endl;
 	std::cout << "-16\tuse 16 bit pcm. Default - 14 bit" << endl;
 	std::cout << "-f\tfor use Full PCM Frame" << endl;
+	std::cout << "-s\tfor use step-by-step generation" << endl;
 }
 
 int main(int argc, char *argv[]){
 	char *inFileName = NULL;
 	bool b16 = false;
+	bool show = false;
+	bool step = false;
 	bool fullPCM = false;
 
 	if (argc == 1){
@@ -48,7 +49,11 @@ int main(int argc, char *argv[]){
 		//	deviceID = std::stoi(argv[i + 1]);
 		//}
 		if (strcmp(argv[i], "-16") == 0) b16 = true;
-		//if (strcmp(argv[i], "-s") == 0) show = true;
+		if (strcmp(argv[i], "-v") == 0) show = true;
+		if (strcmp(argv[i], "-s") == 0){
+			show = true;
+			step = true;
+		}
 		if (strcmp(argv[i], "-f") == 0) fullPCM= true;
 		//if (strcmp(argv[i], "-b") == 0) {
 		//	show = true;
@@ -78,8 +83,9 @@ int main(int argc, char *argv[]){
 	auto start = chrono::steady_clock::now();
 	while(1){
 
-		Mat frame(482, 128 + 5/*sync*/ + 10, CV_8UC1, Scalar(PCM_PIXEL_0));
-		Mat dst(482, 720, CV_8UC1, Scalar(PCM_PIXEL_0));
+		Mat frame(525, 144, CV_8UC1, Scalar(PCM_PIXEL_0)); // 720 / 5 = 144
+		Mat dst(525, 720, CV_8UC1, Scalar(PCM_PIXEL_0));
+		Mat dst2;
 
 		// If the frame is empty, break immediately
 		if (frame.empty())
@@ -93,25 +99,27 @@ int main(int argc, char *argv[]){
 		count++;
 
 		resize(frame, dst, dst.size(), 5, 0, INTER_NEAREST);
-		//imshow("Frame", dst);
-		//imshow("Frame", frame);
 
-		/*
-		char c;
-		while(1){
-			// Press  ESC on keyboard to exit
-			c = (char)waitKey(5);
-			if(c == NEXT_FRAME_KEY || c == EXIT_KEY)
-				break;
+		if (show){
+			imshow("Frame", dst);
+			if (step){
+				char c;
+				while(1){
+					// Press  ESC on keyboard to exit
+					c = (char)waitKey(5);
+					if(c == NEXT_FRAME_KEY || c == EXIT_KEY)
+						break;
+				}
+				if(c == EXIT_KEY)
+					break;
+			} else {
+				waitKey(25);
+			}
 		}
-		if(c == EXIT_KEY)
-			break;
-		*/
-
 	}
 	auto end = chrono::steady_clock::now();
 	float sec = chrono::duration_cast<chrono::milliseconds>(end - start).count() / 1000.0;
-	std::cout << "Count frames: " << count << std::endl;
+	std::cout << "Count frames: " << (uint32_t)count << std::endl;
 	std::cout << "Time: " << sec << std::endl;
 	std::cout << "FPS: " << (count / sec) << std::endl;
 

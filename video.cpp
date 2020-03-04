@@ -16,7 +16,7 @@ void showHelp(void){
 	std::cout << "Usage: -i input_file -o output_file [-s/b/f/16] " << endl;
 	std::cout << "-i\tavi, mp4..." << endl;
 	std::cout << "-o\t*.wav or - for use pipe" << endl;
-	std::cout << "-s\tfor show input video" << endl;
+	std::cout << "-v\tfor show input video" << endl;
 	std::cout << "-b\tfor show video after binarization" << endl;
 	std::cout << "-16\tuse 16 bit pcm. Default - 14 bit" << endl;
 	std::cout << "-f\tfor use Full PCM Frame" << endl;
@@ -49,7 +49,7 @@ int main(int argc, char *argv[]){
 			deviceID = std::stoi(argv[i + 1]);
 		}
 		if (strcmp(argv[i], "-16") == 0) b16 = true;
-		if (strcmp(argv[i], "-s") == 0) show = true;
+		if (strcmp(argv[i], "-v") == 0) show = true;
 		if (strcmp(argv[i], "-f") == 0) fullPCM= true;
 		if (strcmp(argv[i], "-b") == 0) {
 			show = true;
