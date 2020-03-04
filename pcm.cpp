@@ -97,12 +97,9 @@ void writeBlock(uint16_t j, bool type){
 		PCMFrame[j + R1_POS][12] |= (Q  >> 10) & 0x3f;
 		PCMFrame[j + R1_POS][13]  = (Q  >> 2)  & 0xff;
 	}
-
 }
 
-
-
-void preparePCMFrame(cv::Mat frame, uint8_t offset, bool full){
+void readPCMFrame(cv::Mat frame, uint8_t offset, bool full){
 	int16_t header = 1;
 	// перенос
 	memcpy(&(PCMFrame[0]), &(PCMFrame[PCM_NTSC_HEIGHT]), ((PCM_STAIRS) * PCM_WIDTH_BYTES));
@@ -188,8 +185,40 @@ void preparePCMFrame(cv::Mat frame, uint8_t offset, bool full){
 	}
 }
 
+#define PCM_PIXEL_0 30
+#define PCM_PIXEL_1 127
 
-void decodePCMFrame(SNDFILE *outfile, bool type){
+void writePCMFrame(cv::Mat frame, uint8_t offset, bool full){
+	int16_t header = 0;
+
+	//if (!full) {
+	//	memset(PCMFrame[PCM_STAIRS], 0, 11 * PCM_WIDTH_BYTES);
+	//	header = 0;
+	//}
+
+	for(int pcmLine = 0; pcmLine < PCM_NTSC_HEIGHT; pcmLine++){
+		uint16_t imageLine = (pcmLine * 2) + offset + header;
+		// sync
+		frame.at<uchar>(cv::Point(0, imageLine)) = PCM_PIXEL_0;
+		frame.at<uchar>(cv::Point(1, imageLine)) = PCM_PIXEL_1;
+		frame.at<uchar>(cv::Point(2, imageLine)) = PCM_PIXEL_0;
+		frame.at<uchar>(cv::Point(3, imageLine)) = PCM_PIXEL_1;
+		frame.at<uchar>(cv::Point(4, imageLine)) = PCM_PIXEL_0;
+
+		// calc CRC
+		uint16_t crc = Calculate_CRC_CCITT(PCMFrame[pcmLine], 14);
+		PCMFrame[pcmLine][14] = crc >> 8;
+		PCMFrame[pcmLine][15] = crc & 0xff;
+
+		// write pixels
+		for(int pcmPixel = 0; pcmPixel < PCM_WIDTH_BITS ; pcmPixel++){
+			if (PCMFrame[pcmLine + PCM_STAIRS][pcmPixel >> 3] & (1 << (pcmPixel & 0x7)))
+				frame.at<uchar>(cv::Point(5 + pcmPixel, imageLine)) = PCM_PIXEL_1;
+		}
+	}
+}
+
+void PCMFrame2wav(SNDFILE *outfile, bool type){
 	//printf("\n");
 	//printFrame();
 	for(int j = 0; j < PCM_NTSC_HEIGHT; j++){
@@ -225,6 +254,23 @@ void decodePCMFrame(SNDFILE *outfile, bool type){
 
 		sf_write_short(outfile, (int16_t *)buf, 6);
 	}
+}
+
+bool wav2PCMFrame(SNDFILE *infile, bool type){
+	// Перенос конца прошлого блока в начало текущего
+	memcpy(&(PCMFrame[0]), &(PCMFrame[PCM_NTSC_HEIGHT]), ((PCM_STAIRS) * PCM_WIDTH_BYTES));
+
+	// Заполнение
+	for(int j = 0; j < PCM_NTSC_HEIGHT; j++){
+		sf_count_t count = sf_read_short(infile, (int16_t *)buf, 6);
+		if (count != 6){
+			printf("%d\n", count);
+			return(false);
+		}
+		P = L0 ^ R0 ^ L1 ^ R1 ^ L2 ^ R2;
+		writeBlock(j, type);
+	}
+	return true;
 }
 
 uint32_t samplesCount(void){

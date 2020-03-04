@@ -6,6 +6,8 @@
 #include <sndfile.h>
 #include "crc.h"
 
+#include <bitset>
+
 #define PCM_NTSC_HEIGHT 245
 #define PCM_PAL_HEIGHT 294
 #define PCM_WIDTH_BITS 128
@@ -14,9 +16,13 @@
 
 void init();
 
-void decodePCMFrame(SNDFILE *outfile, bool type);
+void PCMFrame2wav(SNDFILE *outfile, bool type);
 
-void preparePCMFrame(cv::Mat frame, uint8_t offset, bool full);
+bool wav2PCMFrame(SNDFILE *infile, bool type);
+
+void readPCMFrame(cv::Mat frame, uint8_t offset, bool full);
+
+void writePCMFrame(cv::Mat frame, uint8_t offset, bool full);
 
 uint32_t samplesCount(void);
 

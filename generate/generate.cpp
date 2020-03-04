@@ -1,6 +1,12 @@
 #include "opencv2/opencv.hpp"
 #include <iostream>
 #include <cstdint>
+#include <sndfile.h>
+#include "../pcm.h"
+
+#include <chrono>
+#include <ctime>
+
 
 using namespace std;
 using namespace cv;
@@ -11,6 +17,8 @@ using namespace cv;
 #define PCM_PIXEL_0 30
 #define PCM_PIXEL_1 127
 
+SNDFILE *infile;
+SF_INFO sfinfo;
 
 void showHelp(void){
 	std::cout << "Usage: -i input_file -o output_file [-s/b/f/16] " << endl;
@@ -60,28 +68,35 @@ int main(int argc, char *argv[]){
 	}
 
 	if (inFileName != NULL){
-		if ((outfile = sf_open (outFileName, SFM_READ, &sfinfo)) == NULL){
+		if ((infile = sf_open (inFileName, SFM_READ, &sfinfo)) == NULL){
 			exit (1) ;
 		}
 	}
 
-	uint16_t line = 0;
+	uint16_t count = 0;
+
+	auto start = chrono::steady_clock::now();
 	while(1){
 
-		Mat frame(482, 700, CV_8UC1, Scalar(PCM_PIXEL_0));
+		Mat frame(482, 128 + 5/*sync*/ + 10, CV_8UC1, Scalar(PCM_PIXEL_0));
+		Mat dst(482, 720, CV_8UC1, Scalar(PCM_PIXEL_0));
 
 		// If the frame is empty, break immediately
 		if (frame.empty())
 			break;
 
-		//memset()
-		for (uint16_t i = 0; i < 700; i++){
-			frame.at<uchar>(Point(i, line)) = PCM_PIXEL_1;
-		}
+		if (!wav2PCMFrame(infile, b16)) break;
+		writePCMFrame(frame, 0, fullPCM);
+		if (!wav2PCMFrame(infile, b16)) break;
+		writePCMFrame(frame, 1, fullPCM);
 
+		count++;
 
-		imshow("Frame", frame);
+		resize(frame, dst, dst.size(), 5, 0, INTER_NEAREST);
+		//imshow("Frame", dst);
+		//imshow("Frame", frame);
 
+		/*
 		char c;
 		while(1){
 			// Press  ESC on keyboard to exit
@@ -89,10 +104,16 @@ int main(int argc, char *argv[]){
 			if(c == NEXT_FRAME_KEY || c == EXIT_KEY)
 				break;
 		}
-		line++;
 		if(c == EXIT_KEY)
 			break;
+		*/
+
 	}
+	auto end = chrono::steady_clock::now();
+	float sec = chrono::duration_cast<chrono::milliseconds>(end - start).count() / 1000.0;
+	std::cout << "Count frames: " << count << std::endl;
+	std::cout << "Time: " << sec << std::endl;
+	std::cout << "FPS: " << (count / sec) << std::endl;
 
 	// Closes all the frames
 	destroyAllWindows();

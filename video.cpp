@@ -121,11 +121,11 @@ int main(int argc, char *argv[]){
     threshold(frame, dst, 79, 255, THRESH_BINARY);
 
 		if (outFileName != NULL){
-			preparePCMFrame(dst, 0, fullPCM);
-			decodePCMFrame(outfile, b16);
+			readPCMFrame(dst, 0, fullPCM);
+			PCMFrame2wav(outfile, b16);
 
-			preparePCMFrame(dst, 1, fullPCM);
-			decodePCMFrame(outfile, b16);
+			readPCMFrame(dst, 1, fullPCM);
+			PCMFrame2wav(outfile, b16);
 		}
 
 		if (show){

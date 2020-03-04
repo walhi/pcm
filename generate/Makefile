@@ -9,7 +9,7 @@ LDFLAGS+= -lopencv_video
 LDFLAGS+= -lsndfile
 
 SOURCES=generate.cpp
-#SOURCES+=../pcm.cpp
+SOURCES+=../pcm.cpp
 SOURCES+=../crc.cpp
 OBJECTS=$(SOURCES:.cpp=.o)
 
