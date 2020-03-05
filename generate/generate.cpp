@@ -84,9 +84,11 @@ int main(int argc, char *argv[]){
 		}
 	}
 
+#define FRAME_HEIGHT 492
+
 	VideoWriter video;
 	if (outFileName != NULL){
-		video.open(outFileName, CV_FOURCC('D','I','V','X'), 29.97, Size(720, 525), false);
+		video.open(outFileName, CV_FOURCC('D','I','V','X'), 29.97, Size(720, FRAME_HEIGHT), false);
 	}
 
 	uint16_t count = 0;
@@ -94,8 +96,8 @@ int main(int argc, char *argv[]){
 	auto start = chrono::steady_clock::now();
 	while(1){
 
-		Mat frame(525, 144, CV_8UC1, Scalar(PCM_PIXEL_0)); // 720 / 5 = 144
-		Mat dst(525, 720, CV_8UC1, Scalar(PCM_PIXEL_0));
+		Mat frame(FRAME_HEIGHT, 144, CV_8UC1, Scalar(PCM_PIXEL_0)); // 720 / 5 = 144
+		Mat dst(FRAME_HEIGHT, 720, CV_8UC1, Scalar(PCM_PIXEL_0));
 		Mat dst2;
 
 		// If the frame is empty, break immediately

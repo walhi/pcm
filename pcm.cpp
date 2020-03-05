@@ -98,7 +98,7 @@ void readBlock(uint16_t j, bool type){
 void writeBlock(uint16_t j, bool type){
 	// Не пытайтесь это читать... Сломаетесь...
 	PCMFrame[j + L0_POS][ 0]  = L0 >> 8;           // 8 бит
-	PCMFrame[j + L0_POS][ 1] &= ~0xfc;              // Очистить 6 бит
+	PCMFrame[j + L0_POS][ 1] &= ~0xfc;             // Очистить 6 бит
 	PCMFrame[j + L0_POS][ 1] |= L0 & 0xfc;         // Записать 6 бит
 
 	PCMFrame[j + R0_POS][ 1] &= ~0x3;              // Очистить 2 бита
@@ -111,7 +111,7 @@ void writeBlock(uint16_t j, bool type){
 	PCMFrame[j + L1_POS][ 3] |= (L1 >> 12) & 0x0f; // Записать 4 бита
 	PCMFrame[j + L1_POS][ 4]  = (L1 >> 4)  & 0xff; // 8 бит
 	PCMFrame[j + L1_POS][ 5] &= ~0xc0;             // Очистить 2 бита
-	PCMFrame[j + L1_POS][ 5] |= (L1 << 6)  & 0xc0; // Записать 2 бита
+	PCMFrame[j + L1_POS][ 5] |= (L1 << 4)  & 0xc0; // Записать 2 бита
 
 	PCMFrame[j + R1_POS][ 5] &= ~0x3f; // 6 бит
 	PCMFrame[j + R1_POS][ 5] |= (R1 >> 10) & 0x3f; // 6 бит
@@ -119,20 +119,20 @@ void writeBlock(uint16_t j, bool type){
 
 
 	PCMFrame[j + L2_POS][ 7]  = L2 >> 8;           // 8 бит
-	PCMFrame[j + L2_POS][ 8] &= ~0xfc;              // Очистить 6 бит
+	PCMFrame[j + L2_POS][ 8] &= ~0xfc;             // Очистить 6 бит
 	PCMFrame[j + L2_POS][ 8] |= L2 & 0xfc;         // Записать 6 бит
 
 	PCMFrame[j + R2_POS][ 8] &= ~0x3;              // Очистить 2 бита
 	PCMFrame[j + R2_POS][ 8] |= (R2 >> 14) & 0x3;  // Записать 2 бита
 	PCMFrame[j + R2_POS][ 9]  = (R2 >> 6)  & 0xff; // 8 бит
 	PCMFrame[j + R2_POS][10] &= ~0xf0;             // Очистить 4 бита
-	PCMFrame[j + R2_POS][10]  = (R2 << 2)  & 0xf0; // Записать 4 бита
+	PCMFrame[j + R2_POS][10] |= (R2 << 2)  & 0xf0; // Записать 4 бита
 
 	PCMFrame[j +  P_POS][10] &= ~0x0f;             // Очистить 4 бита
 	PCMFrame[j +  P_POS][10] |= (P  >> 12) & 0x0f; // Записать 4 бита
 	PCMFrame[j +  P_POS][11]  = (P  >> 4)  & 0xff; // 8 бит
 	PCMFrame[j +  P_POS][12] &= ~0xc0;             // Очистить 2 бита
-	PCMFrame[j +  P_POS][12] |= (P  << 6)  & 0xc0; // Записать 2 бита
+	PCMFrame[j +  P_POS][12] |= (P  << 4)  & 0xc0; // Записать 2 бита
 
 	// 16 бит PCM
 	if (type){
@@ -215,7 +215,7 @@ void readPCMFrame(cv::Mat frame, uint8_t offset, bool full){
 			}
 		}
 		pixelSize = (float)(end - start) / PCM_WIDTH_BITS;
-		printf("%d\t%d\t%.2f\n", start, end, pixelSize);
+		//printf("%d\t%d\t%.2f\n", start, end, pixelSize);
 
 		// Чтение данных
 		if(full)
@@ -247,7 +247,7 @@ void readPCMFrame(cv::Mat frame, uint8_t offset, bool full){
 #define PCM_PIXEL_1 127
 
 void writePCMFrame(cv::Mat frame, uint8_t offset, bool full){
-	int16_t header = 0;
+	int16_t header = 2;
 
 	for(int pcmLine = 0; pcmLine < PCM_NTSC_HEIGHT; pcmLine++){
 		uint8_t* pcmLinePtr = PCMFrame[pcmLine];
