@@ -173,7 +173,7 @@ void readPCMFrame(cv::Mat frame, uint8_t offset, bool full){
 			}
 		}
 		pixelSize = (float)(end - start) / PCM_WIDTH_BITS;
-		//printf("%d\t%d\t%.2f\n", start, end, pixelSize);
+		//fprintf(stderr, "%d\t%d\t%.2f\n", start, end, pixelSize);
 
 		if (pixelSize < 0/* || pixelSize > */){ // Пустая строка
 			continue;
@@ -200,7 +200,7 @@ void readPCMFrame(cv::Mat frame, uint8_t offset, bool full){
 		if (crcCheck != crcOriginal){
 			line[14] = 0;
 			line[15] = 0;
-			printf("CRC ERROR %d\t%d\t%d\t%.2f\t0x%04x\t0x%04x\n", pcmLine, start, end, pixelSize, crcOriginal, crcCheck);
+			fprintf(stderr, "CRC ERROR %d\t%d\t%d\t%.2f\t0x%04x\t0x%04x\n", pcmLine, start, end, pixelSize, crcOriginal, crcCheck);
 			crcErrorCount++;
 		}
 		pcmLine++;
@@ -264,23 +264,23 @@ void writePCMFrame(cv::Mat frame, uint8_t offset, bool full){
 }
 
 void PCMFrame2wav(SNDFILE *outfile, bool type){
-	//printf("\n");
+	//fprintf(stderr, "\n");
 	//printFrame();
 	for(int j = 0; j < PCM_NTSC_HEIGHT; j++){
 		stairsCount++;
 		readBlock(j, type);
 
 		uint8_t crcErrors = 0;
-		if (PCMFrame[j + L0_POS][15] == 0){crcErrors++; /*printf("L0\n");*/}
-		if (PCMFrame[j + R0_POS][15] == 0){crcErrors++; /*printf("R0\n");*/}
-		if (PCMFrame[j + L1_POS][15] == 0){crcErrors++; /*printf("L1\n");*/}
-		if (PCMFrame[j + R1_POS][15] == 0){crcErrors++; /*printf("R1\n");*/}
-		if (PCMFrame[j + L2_POS][15] == 0){crcErrors++; /*printf("L2\n");*/}
-		if (PCMFrame[j + R2_POS][15] == 0){crcErrors++; /*printf("R2\n");*/}
-		if (PCMFrame[j +  P_POS][15] == 0){crcErrors++; /*printf(" P\n");*/}
+		if (PCMFrame[j + L0_POS][15] == 0){crcErrors++; /*fprintf(stderr, "L0\n");*/}
+		if (PCMFrame[j + R0_POS][15] == 0){crcErrors++; /*fprintf(stderr, "R0\n");*/}
+		if (PCMFrame[j + L1_POS][15] == 0){crcErrors++; /*fprintf(stderr, "L1\n");*/}
+		if (PCMFrame[j + R1_POS][15] == 0){crcErrors++; /*fprintf(stderr, "R1\n");*/}
+		if (PCMFrame[j + L2_POS][15] == 0){crcErrors++; /*fprintf(stderr, "L2\n");*/}
+		if (PCMFrame[j + R2_POS][15] == 0){crcErrors++; /*fprintf(stderr, "R2\n");*/}
+		if (PCMFrame[j +  P_POS][15] == 0){crcErrors++; /*fprintf(stderr, " P\n");*/}
 		//if (!PCMFrame[j +  Q_POS][15]) crcErrors++;
 
-		fprintf(stderr, "%d ", crcErrors);
+		//fprintf(stderr, "%d ", crcErrors);
 		if (crcErrors == 1){
 			uint16_t PC = L0 ^ R0 ^ L1 ^ R1 ^ L2 ^ R2;
 			if (P != PC && PCMFrame[j + P_POS][15]/* && crcErrors == 1*/){
@@ -294,7 +294,7 @@ void PCMFrame2wav(SNDFILE *outfile, bool type){
 
 			}/* else if (crcErrors > 1){
 					memset(buf, 0, sizeof(uint16_t) * 6);
-					//printf("%d\n", crcErrors);
+					//fprintf(stderr, "%d\n", crcErrors);
 
 					}*/
 		}
@@ -315,10 +315,10 @@ bool wav2PCMFrame(SNDFILE *infile, bool type){
 		}
 		P = L0 ^ R0 ^ L1 ^ R1 ^ L2 ^ R2;
 		writeBlock(j, type);
-		//printf("%04x %04x %04x %04x %04x %04x %04x\n", buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], P);
+		//fprintf(stderr, "%04x %04x %04x %04x %04x %04x %04x\n", buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], P);
 		//readBlock(j, type);
-		//printf("%04x %04x %04x %04x %04x %04x %04x\n", buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], P);
-		//printf("\n");
+		//fprintf(stderr, "%04x %04x %04x %04x %04x %04x %04x\n", buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], P);
+		//fprintf(stderr, "\n");
 		//if (j > 100) exit(0);
 	}
 	return true;
