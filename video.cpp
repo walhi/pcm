@@ -149,6 +149,10 @@ int main(int argc, char *argv[]){
 		if (srcFrame.empty())
       break;
 
+		if (srcFrame.size().width != 720)
+			resize(srcFrame, srcFrame, Size(720, srcFrame.size().height), 0, 0, INTER_NEAREST);
+
+
 		cvtColor(srcFrame, greyFrame, CV_BGR2GRAY);
 
     //threshold(srcFrame, binFrame, 79, 255, THRESH_BINARY);
@@ -162,7 +166,7 @@ int main(int argc, char *argv[]){
 		for (int i = binFrame.size().height - 1; i >= 0; i--){
 			if (searchStart(binFrame, i, NULL, NULL)){
 				// PCM данные найдены. Перенесем их.
-				//fprintf(stderr, "end: %d\n", i);
+				fprintf(stderr, "end: %d\n", i);
 				memcpy(fullFrame.data + fullFrame.elemSize() * fullFrame.size().width * (2 + FRAME_HEIGHT - i - 1), binFrame.data, binFrame.elemSize() * binFrame.size().width * (i - 1));
 				break;
 			}
@@ -185,7 +189,7 @@ int main(int argc, char *argv[]){
 				copyOutBuffer();
 				writePCMFrame(pcmFrame, 1, true);
 				PCMFrame2wav(outfile, b16);
-				resize(pcmFrame, binFrame, binFrame.size(), 5, 0, INTER_NEAREST);
+				resize(pcmFrame, fullFrame, fullFrame.size(), 5, 0, INTER_NEAREST);
 			} else {
 				readPCMFrame(fullFrame, 0);
 				PCMFrame2wav(outfile, b16);
@@ -199,7 +203,7 @@ int main(int argc, char *argv[]){
 		if (show){
 			char c;
 			if (showBin){
-				imshow("Frame", binFrame);
+				imshow("Frame", fullFrame);
 			} else {
 				imshow("Frame", srcFrame);
 			}
