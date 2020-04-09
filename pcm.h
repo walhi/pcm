@@ -20,7 +20,7 @@ void PCMFrame2wav(SNDFILE *outfile, bool type);
 
 bool wav2PCMFrame(SNDFILE *infile, bool type);
 
-void readPCMFrame(cv::Mat frame, uint8_t offset, bool full);
+void readPCMFrame(cv::Mat frame, uint8_t offset);
 
 void writePCMFrame(cv::Mat frame, uint8_t offset, bool full);
 
@@ -30,4 +30,7 @@ void printFrame(void);
 
 void showStatistics(void);
 
+bool searchStart(cv::Mat frame, uint16_t line, uint16_t *startPtr, float *pixelSizePtr);
+
+void copyOutBuffer(void);
 #endif

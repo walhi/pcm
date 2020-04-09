@@ -24,7 +24,7 @@
 #define R2 buf[5]
 
 static uint32_t stairsCount = 0;
-static uint32_t crcErrorCount = 0;
+static uint32_t crcAllErrorCount = 0;
 static uint32_t parityErrorCount = 0;
 
 
@@ -118,15 +118,77 @@ void writeBlock(uint16_t j, bool type){
 	}
 }
 
-void readPCMFrame(cv::Mat frame, uint8_t offset, bool full){
+bool searchStart(cv::Mat frame, uint16_t line, uint16_t *startPtr, float *pixelSizePtr){
+	uint16_t black = 0;
+	uint16_t start = 0;
+	float pixelSize = 1;
+	bool startSync = false;
+	// Поиск начала данных в строке
+	for(int i = 0; i < frame.cols; i++){
+		if (PIXEL(frame, line, i)){
+			start = i;
+			if (black)
+				startSync = true;
+		} else {
+			if (startSync){
+				start += black + 1;
+				break;
+			}
+			if (start)
+				black++;
+		}
+	}
+
+	if (!start){ // Пустая строка
+		return false;
+	}
+
+	// Поиск конца данных в строке
+	uint16_t end = 0;
+	for(int i = frame.cols - 1; i >= 0; i--){
+		if (PIXEL(frame, line, i)){
+			end = i;
+		} else {
+			if (end){
+				end -= black;
+				break;
+			}
+		}
+	}
+	pixelSize = (float)(end - start) / PCM_WIDTH_BITS;
+	//fprintf(stderr, "%d\t%d\t%.2f\n", start, end, pixelSize);
+
+	if (pixelSize < 0/* || pixelSize > */){ // Пустая строка
+		return false;
+	}
+
+	if (pixelSizePtr != NULL)
+		*pixelSizePtr = pixelSize;
+
+	if (startPtr != NULL)
+		*startPtr = start;
+
+	return true;
+}
+
+inline bool readLine(cv::Mat frame, uint16_t offset, uint8_t *line, uint16_t start, float pixelSize){
+	memset(line, 0, PCM_WIDTH_BYTES);
+	for(int i = 0; i < PCM_WIDTH_BITS; i ++){
+		line[i >> 3] |= PIXEL(frame, offset, (int)(i * pixelSize + start + pixelSize / 2)) << (7 - (i & 0b111)); // /8 and %8
+	}
+	uint16_t crcCheck = Calculate_CRC_CCITT(line, 14);
+	uint16_t crcOriginal = line[14] << 8 | line[15];
+	return crcCheck == crcOriginal;
+
+}
+
+void readPCMFrame(cv::Mat frame, uint8_t offset){
+	static uint32_t frameCount = 0;
+	uint16_t crcErrorCount = 0;
+	uint16_t clearLinesCount = 0;
 	int16_t header = 1;
 	// перенос
 	memcpy(&(PCMFrame[0]), &(PCMFrame[PCM_NTSC_HEIGHT]), ((PCM_STAIRS) * PCM_WIDTH_BYTES));
-
-	if (!full) {
-		memset(PCMFrame[PCM_STAIRS], 0, 11 * PCM_WIDTH_BYTES);
-		header = 0;
-	}
 
 	uint8_t *line;
 	int pcmLine = 0;
@@ -135,80 +197,38 @@ void readPCMFrame(cv::Mat frame, uint8_t offset, bool full){
 			break;
 		}
 
-		uint16_t black = 0;
+		line = PCMFrame[pcmLine + PCM_STAIRS];
+
 		uint16_t start = 0;
 		float pixelSize = 1;
-		bool startSync = false;
-		// Поиск начала данных в строке
-		for(int i = 0; i < frame.cols; i++){
-			if (PIXEL(frame, j + offset, i)){
-        start = i;
-				if (black)
-					startSync = true;
-			} else {
-				if (startSync){
-					start += black + 1;
-					break;
-				}
-				if (start)
-					black++;
-			}
-		}
-
-		if (!start){ // Пустая строка
-			continue;
-		}
-
-
-		// Поиск конца данных в строке
-		uint16_t end = 0;
-		for(int i = frame.cols - 1; i >= 0; i--){
-			if (PIXEL(frame, j + offset, i)){
-        end = i;
-			} else {
-				if (end){
-					end -= black;
-					break;
-				}
-			}
-		}
-		pixelSize = (float)(end - start) / PCM_WIDTH_BITS;
-		//fprintf(stderr, "%d\t%d\t%.2f\n", start, end, pixelSize);
-
-		if (pixelSize < 0/* || pixelSize > */){ // Пустая строка
-			continue;
-		}
-
 
 		if (header > 0){
 			header--;
 			continue;
 		}
 
-		// Чтение данных
-		if(full)
-			line = PCMFrame[pcmLine + PCM_STAIRS];
-		else
-			line = PCMFrame[pcmLine + PCM_STAIRS + 11];
-
-		memset(line, 0, PCM_WIDTH_BYTES);
-		for(int i = 0; i < PCM_WIDTH_BITS; i ++){
-			line[i >> 3] |= PIXEL(frame, j + offset, (int)(i * pixelSize + start + pixelSize / 2)) << (7 - (i & 0b111)); // /8 and %8
+		if (!searchStart(frame, j + offset, &start, &pixelSize)){
+			memset(line, 0, PCM_WIDTH_BYTES);
+			clearLinesCount++;
 		}
-		uint16_t crcCheck = Calculate_CRC_CCITT(line, 14);
-		uint16_t crcOriginal = line[14] << 8 | line[15];
-		if (crcCheck != crcOriginal){
-			line[14] = 0;
-			line[15] = 0;
-			fprintf(stderr, "CRC ERROR %d\t%d\t%d\t%.2f\t0x%04x\t0x%04x\n", pcmLine, start, end, pixelSize, crcOriginal, crcCheck);
-			crcErrorCount++;
+
+		// Чтение данных
+		if (!readLine(frame, j + offset, line, start, pixelSize)){
+			if (!readLine(frame, j + offset, line, start - 1, pixelSize)){
+				if (!readLine(frame, j + offset, line, start + 1, pixelSize)){
+					line[14] = 0;
+					line[15] = 0;
+					crcErrorCount++;
+				}
+			}
 		}
 		pcmLine++;
 	}
 
-	if (!full) {
-		// Восстановление потраченных строк
-	}
+	frameCount++;
+	if (crcErrorCount)
+		fprintf(stderr, "Frame %6d. CRC errors: %d(%d) - %.2f%%(%.2f%%)\n", frameCount, crcErrorCount, crcErrorCount - clearLinesCount, crcErrorCount / 2.45, (crcErrorCount - clearLinesCount) / 2.45);
+	crcAllErrorCount += crcErrorCount;
 }
 
 #define PCM_PIXEL_0 30
@@ -303,6 +323,10 @@ void PCMFrame2wav(SNDFILE *outfile, bool type){
 	}
 }
 
+void copyOutBuffer(void){
+	memcpy(&(PCMFrame[0]), &(PCMFrame[PCM_STAIRS]), (PCM_NTSC_HEIGHT * PCM_WIDTH_BYTES));
+}
+
 bool wav2PCMFrame(SNDFILE *infile, bool type){
 	// Перенос конца прошлого блока в начало текущего
 	memcpy(&(PCMFrame[0]), &(PCMFrame[PCM_NTSC_HEIGHT]), ((PCM_STAIRS) * PCM_WIDTH_BYTES));
@@ -340,6 +364,6 @@ void printFrame(void){
 
 void showStatistics(void){
 	fprintf(stderr, "Stairs count: %d\n", stairsCount);
-	fprintf(stderr, "CRC errors count: %d\n", crcErrorCount);
+	fprintf(stderr, "CRC errors count: %d\n", crcAllErrorCount);
 	fprintf(stderr, "Parity errors count: %d\n", parityErrorCount);
 }

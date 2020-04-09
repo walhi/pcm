@@ -130,7 +130,9 @@ int main(int argc, char *argv[]){
 				if(c == EXIT_KEY)
 					break;
 			} else {
-				waitKey(25);
+				c = (char)waitKey(25);
+				if(c == EXIT_KEY)
+					break;
 			}
 		}
 	}
