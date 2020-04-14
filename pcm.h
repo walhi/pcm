@@ -11,8 +11,8 @@
 #define PCM_NTSC_HEIGHT 245
 #define PCM_PAL_HEIGHT 294
 #define PCM_WIDTH_BITS 128
-#define PCM_WIDTH_BYTES PCM_WIDTH_BITS/8
-#define PCM_STAIRS 112 // 7*16
+#define PCM_WIDTH_BYTES 16
+#define PCM_STAIRS 111 // 7*16
 
 void init();
 
@@ -33,4 +33,6 @@ void showStatistics(void);
 bool searchStart(cv::Mat frame, uint16_t line, uint16_t *startPtr, float *pixelSizePtr);
 
 void copyOutBuffer(void);
+
+void memsetBuffer(uint8_t value);
 #endif

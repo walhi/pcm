@@ -21,21 +21,14 @@ void showHelp(void){
 	std::cout << "-s\tfor show input video step-by-step" << endl;
 	std::cout << "-b\tfor show video after binarization" << endl;
 	std::cout << "-16\tuse 16 bit pcm. Default - 14 bit" << endl;
-	std::cout << "-f\tfor use Full PCM Frame" << endl;
 }
 
 #define NEXT_FRAME_KEY 32
 #define EXIT_KEY 27
+#define SHOW_FRAME_KEY 0x73
 
 #define PCM_PIXEL_0 30
 #define PCM_PIXEL_1 127
-
-Mat translateImg(Mat &img, int offsetx, int offsety){
-    Mat trans_mat = (Mat_<double>(2,3) << 1, 0, offsetx, 0, 1, offsety);
-    warpAffine(img, img, trans_mat, img.size());
-    return img;
-}
-
 
 #define FRAME_HEIGHT 492
 
@@ -48,7 +41,6 @@ int main(int argc, char *argv[]){
 	bool showBin = false;
 	bool copyOut = false;
 	bool b16 = false;
-	bool fullPCM = false;
 
 	bool useDevice = false;
 
@@ -69,7 +61,6 @@ int main(int argc, char *argv[]){
 		}
 		if (strcmp(argv[i], "-16") == 0) b16 = true;
 		if (strcmp(argv[i], "-v") == 0) show = true;
-		if (strcmp(argv[i], "-f") == 0) fullPCM= true;
 		if (strcmp(argv[i], "-b") == 0) {
 			show = true;
 			showBin = true;
@@ -154,29 +145,17 @@ int main(int argc, char *argv[]){
 
 
 		cvtColor(srcFrame, greyFrame, CV_BGR2GRAY);
-
-    //threshold(srcFrame, binFrame, 79, 255, THRESH_BINARY);
-    //threshold(greyFrame, binFrame, 79, 255, THRESH_BINARY);
-		GaussianBlur(greyFrame, greyFrame, Size(3, 1), 0, 0, BORDER_DEFAULT);
-		threshold(greyFrame, binFrame, 0, 255, THRESH_BINARY + THRESH_OTSU);
-		//adaptiveThreshold(greyFrame, binFrame, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 11, 2);
-		//adaptiveThreshold(greyFrame, binFrame, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, 11, 2);
+    threshold(greyFrame, binFrame, 0, 255, THRESH_BINARY + THRESH_OTSU);
 
 		// Подсчет количества пустых строк внизу
 		for (int i = binFrame.size().height - 1; i >= 0; i--){
 			if (searchStart(binFrame, i, NULL, NULL)){
 				// PCM данные найдены. Перенесем их.
-				fprintf(stderr, "end: %d\n", i);
 				memcpy(fullFrame.data + fullFrame.elemSize() * fullFrame.size().width * (2 + FRAME_HEIGHT - i - 1), binFrame.data, binFrame.elemSize() * binFrame.size().width * (i - 1));
 				break;
 			}
 		}
-
-
-    //frame(Rect(0, 10, frame.cols, frame.rows - 10)).copyTo(out(cv::Rect(0,0,frame.cols,frame.rows-10)));
-
-
-
+    memsetBuffer(0xaa);
 		if (outFileName != NULL){
 			if (copyOut){
 				Mat pcmFrame(FRAME_HEIGHT, 144, CV_8UC1, Scalar(PCM_PIXEL_0)); // 720 / 5 = 144
@@ -193,9 +172,13 @@ int main(int argc, char *argv[]){
 			} else {
 				readPCMFrame(fullFrame, 0);
 				PCMFrame2wav(outfile, b16);
+        if (showStep)
+          printFrame();
 
 				readPCMFrame(fullFrame, 1);
 				PCMFrame2wav(outfile, b16);
+        if (showStep)
+          printFrame();
 			}
 		}
 
@@ -211,6 +194,8 @@ int main(int argc, char *argv[]){
 				while(1){
 					// Press  ESC on keyboard to exit
 					c = (char)waitKey(5);
+          if(c == SHOW_FRAME_KEY)
+            printFrame();
 					if(c == NEXT_FRAME_KEY || c == EXIT_KEY)
 						break;
 				}
@@ -222,6 +207,7 @@ int main(int argc, char *argv[]){
 					break;
 			}
 		}
+    //memsetBuffer(0xfa);
 
   }
 

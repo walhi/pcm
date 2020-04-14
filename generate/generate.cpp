@@ -119,8 +119,8 @@ int main(int argc, char *argv[]){
 
 		if (show){
 			imshow("Frame", dst);
+      char c;
 			if (step){
-				char c;
 				while(1){
 					// Press  ESC on keyboard to exit
 					c = (char)waitKey(5);

@@ -5,7 +5,7 @@ LDFLAGS=  -lopencv_core
 LDFLAGS+= -lopencv_imgproc
 LDFLAGS+= -lopencv_highgui
 LDFLAGS+= -lopencv_video
-LDFLAGS+= -lopencv_videoio
+#LDFLAGS+= -lopencv_videoio
 LDFLAGS+= -lsndfile
 
 SOURCES=video.cpp pcm.cpp crc.cpp
@@ -21,3 +21,6 @@ $(EXECUTABLE): $(OBJECTS)
 
 .cpp.o:
 	$(CC) $(CFLAGS) $< -o $@
+
+clean:
+	rm *.o
