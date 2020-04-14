@@ -45,10 +45,6 @@ int main(int argc, char *argv[]){
 	for (int i=0; i < argc; i++){
 		if (strcmp(argv[i], "-i") == 0)  inFileName = argv[i + 1];
 		if (strcmp(argv[i], "-o") == 0) outFileName = argv[i + 1];
-		//if (strcmp(argv[i], "-d") == 0) {
-		//	useDevice = true;
-		//	deviceID = std::stoi(argv[i + 1]);
-		//}
 		if (strcmp(argv[i], "-16") == 0) b16 = true;
 		if (strcmp(argv[i], "-v") == 0) show = true;
 		if (strcmp(argv[i], "-s") == 0){
@@ -56,15 +52,10 @@ int main(int argc, char *argv[]){
 			step = true;
 		}
 		if (strcmp(argv[i], "-f") == 0) fullPCM= true;
-		//if (strcmp(argv[i], "-b") == 0) {
-		//	show = true;
-		//	showBin = true;
-		//}
 		if ((strcmp(argv[i], "-h") == 0) || (strcmp(argv[i], "--help") == 0)) {
 			showHelp();
 			return 0;
 		}
-		//std::cout << count << " " << argv[i] << '\n';
 	}
 
 	// ToDo: line in!
@@ -85,10 +76,18 @@ int main(int argc, char *argv[]){
 	}
 
 #define FRAME_HEIGHT 492
+	//#define FRAME_HEIGHT 576
 
 	VideoWriter video;
 	if (outFileName != NULL){
-		video.open(outFileName, CV_FOURCC('D','I','V','X'), 29.97, Size(720, FRAME_HEIGHT), false);
+		//int fourcc = CV_FOURCC('D', 'V', '2', '5');
+		//video.open(outFileName, fourcc, 29.97, Size(720, FRAME_HEIGHT), false);
+		// PNG костыль
+		video.open("img_%04d.png", 0, 0, Size(720, FRAME_HEIGHT), false);
+		// for windows
+		//video.open(outFileName, 0, 29.97, Size(720, FRAME_HEIGHT), false);
+		if (!video.isOpened() )
+			throw(std::string("Could not open video file for write"));
 	}
 
 	uint16_t count = 0;
