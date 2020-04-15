@@ -5,6 +5,8 @@
 
 #include "pcm.h"
 
+#include <chrono>
+#include <ctime>
 
 using namespace std;
 using namespace cv;
@@ -123,7 +125,8 @@ int main(int argc, char *argv[]){
 		}
 	}
 
-
+	auto start = chrono::steady_clock::now();
+  uint32_t countFrames = 0;
   while(1){
 
     Mat srcFrame;
@@ -140,22 +143,31 @@ int main(int argc, char *argv[]){
 		if (srcFrame.empty())
       break;
 
+    countFrames++;
+
 		if (srcFrame.size().width != 720)
 			resize(srcFrame, srcFrame, Size(720, srcFrame.size().height), 0, 0, INTER_NEAREST);
 
 
 		cvtColor(srcFrame, greyFrame, CV_BGR2GRAY);
-    threshold(greyFrame, binFrame, 0, 255, THRESH_BINARY + THRESH_OTSU);
+    if (greyFrame.size().height == fullFrame.size().height){
+      // послали итак целый PCM кадр
+      threshold(greyFrame, fullFrame, 0, 255, THRESH_BINARY + THRESH_OTSU);
+    } else {
+      // Фрейм не полный.
+      fprintf(stderr, "Frame not full. ");
+      threshold(greyFrame, binFrame, 0, 255, THRESH_BINARY + THRESH_OTSU);
+      // Перенос данных в конец полного фрейма. Подсчет количества пустых строк внизу
+      for (int i = binFrame.size().height - 1; i >= 0; i--){
+        if (searchStart(binFrame, i, NULL, NULL)){
+          // PCM данные найдены. Перенесем их.
+          fprintf(stderr, "Lines count: %d\n", i + 1);
+          memcpy(fullFrame.data + fullFrame.elemSize() * fullFrame.size().width * (FRAME_HEIGHT - i - 1), binFrame.data, binFrame.elemSize() * binFrame.size().width * (i + 1));
+          break;
+        }
+      }
+    }
 
-		// Подсчет количества пустых строк внизу
-		for (int i = binFrame.size().height - 1; i >= 0; i--){
-			if (searchStart(binFrame, i, NULL, NULL)){
-				// PCM данные найдены. Перенесем их.
-				memcpy(fullFrame.data + fullFrame.elemSize() * fullFrame.size().width * (2 + FRAME_HEIGHT - i - 1), binFrame.data, binFrame.elemSize() * binFrame.size().width * (i - 1));
-				break;
-			}
-		}
-    memsetBuffer(0xaa);
 		if (outFileName != NULL){
 			if (copyOut){
 				Mat pcmFrame(FRAME_HEIGHT, 144, CV_8UC1, Scalar(PCM_PIXEL_0)); // 720 / 5 = 144
@@ -182,6 +194,10 @@ int main(int argc, char *argv[]){
 			}
 		}
 
+
+    for(int j = fullFrame.cols/4; j < fullFrame.cols/2; j++){
+      fullFrame.at<uchar>(cv::Point(j, 0)) = 255;
+    }
 
 		if (show){
 			char c;
@@ -223,6 +239,11 @@ int main(int argc, char *argv[]){
 
 		showStatistics();
 	}
+  auto end = chrono::steady_clock::now();
+	float sec = chrono::duration_cast<chrono::milliseconds>(end - start).count() / 1000.0;
+	std::cout << "Count frames: " << (uint32_t)countFrames << std::endl;
+	std::cout << "Time: " << sec << std::endl;
+	std::cout << "FPS: " << (countFrames / sec) << std::endl;
 
 	return 0;
 }

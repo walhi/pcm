@@ -36,6 +36,8 @@ uint16_t buf[6];
 uint16_t P;
 uint16_t Q;
 
+uint8_t header[16] = {0b11001100, 0, 0, 0, 0, 0, 0b00001100};
+
 void readBlock(uint16_t j, bool type){
 	L0 = (( PCMFrame[j + L0_POS][0] << 6)          | (PCMFrame[j + L0_POS][1] >> 2)) << 2;
 	R0 = (((PCMFrame[j + R0_POS][1] & 0x03) << 12) | (PCMFrame[j + R0_POS][2] << 4) | ((PCMFrame[j + R0_POS][3] >> 4) & 0x0f)) << 2;
@@ -174,68 +176,72 @@ bool searchStart(cv::Mat frame, uint16_t line, uint16_t *startPtr, float *pixelS
 	return true;
 }
 
-bool readLine(cv::Mat frame, uint16_t offset, uint8_t *line, uint16_t start, float pixelSize){
-	memset(line, 0, PCM_FRAME_WIDTH);
-	for(int i = 0; i < PCM_WIDTH_BITS; i ++){
-		line[i >> 3] |= PIXEL(frame, offset, (int)(i * pixelSize + start + pixelSize / 2)) << (7 - (i & 0b111)); // /8 and %8
+bool readLine(cv::Mat frame, uint16_t line, uint8_t *output, uint16_t startPosition, float pixelSize){
+	memset(output, 0, PCM_FRAME_WIDTH);
+	for(int i = 0; i < PCM_WIDTH_BITS; i++){
+    if (PIXEL(frame, line, (int)(i * pixelSize + startPosition + pixelSize / 2)))
+      output[i >> 3] |= 1 << (7 - (i & 0b111));
 	}
-	uint16_t crcCheck = Calculate_CRC_CCITT(line, 14);
-	uint16_t crcOriginal = line[14] << 8 | line[15];
-  line[16] = (crcCheck != crcOriginal)?1:0;
-	return !line[16];
+	uint16_t crcCheck = Calculate_CRC_CCITT(output, 14);
+	uint16_t crcOriginal = output[14] << 8 | output[15];
+  output[16] = (crcCheck != crcOriginal)?1:0;
+	return !output[16];
 }
 
 void readPCMFrame(cv::Mat frame, uint8_t offset){
 	static uint32_t frameCount = 0;
 	uint16_t crcErrorCount = 0;
 	uint16_t clearLinesCount = 0;
-	int16_t header = 1;
+  int PCMLineCounter = 0;
+
 	// перенос
 	memcpy(&(PCMFrame[0]), &(PCMFrame[PCM_FRAME_HEIGHT - PCM_STAIRS]), ((PCM_STAIRS) * PCM_FRAME_WIDTH));
 
-	uint8_t *line;
-	int pcmLine = 0;
-	for(int j = 0; j < frame.rows; j += 2){
-		if (pcmLine > PCM_NTSC_HEIGHT){
+  //fprintf(stderr, "frame height %d\n", frame.rows);
+	for(int i = 2 + offset; i <= frame.rows; i += 2){
+		if (PCMLineCounter >= PCM_NTSC_HEIGHT){
 			break;
 		}
+		//fprintf(stderr, "decode %d line (%d, %d)\n", i, PCMLineCounter + 1, PCMLineCounter + PCM_STAIRS);
 
-		line = PCMFrame[pcmLine + PCM_STAIRS];
+		uint8_t *PCMLinePtr = PCMFrame[PCMLineCounter + PCM_STAIRS];
 
 		uint16_t start = 0;
 		float pixelSize = 1;
 
-		if (header > 0){
-			header--;
-			continue;
-		}
-
-		if (!searchStart(frame, j + offset, &start, &pixelSize)){
-			memset(line, 0, PCM_FRAME_WIDTH);
-      line[16] = 0xf0;
+		if (!searchStart(frame, i, &start, &pixelSize)){
+			memset(PCMLinePtr, 0, PCM_FRAME_WIDTH);
+      PCMLinePtr[16] = 0xf0;
 			clearLinesCount++;
 		}
 
 		// Чтение данных
-		if (!readLine(frame, j + offset, line, start, pixelSize)){
-			if (!readLine(frame, j + offset, line, start - 1, pixelSize)){
-				if (!readLine(frame, j + offset, line, start + 1, pixelSize)){
-					line[16] = 0xf1;
+		if (!readLine(frame, i, PCMLinePtr, start, pixelSize)){
+			if (!readLine(frame, i, PCMLinePtr, start - 1, pixelSize)){
+				if (!readLine(frame, i, PCMLinePtr, start + 1, pixelSize)){
+					PCMLinePtr[16] = 0xf1;
 					crcErrorCount++;
 				}
 			}
 		}
-		pcmLine++;
+
+    //for(int j = frame.cols/4; j < frame.cols/2; j++){
+    //  frame.at<uchar>(cv::Point(j, i)) = 50;
+    //}
+
+    PCMLineCounter++;
 	}
 
 	frameCount++;
 
+  /*
   if (clearLinesCount){
-		fprintf(stderr, "Frame %6d. clear lines: %d\n", frameCount, clearLinesCount);
+		fprintf(stderr, "Field %6d. clear lines: %d\n", frameCount, clearLinesCount);
   }
+  */
 
   if (crcErrorCount){
-		fprintf(stderr, "Frame %6d. CRC errors: %d(%d) - %.2f%%(%.2f%%)\n", frameCount, crcErrorCount, crcErrorCount - clearLinesCount, crcErrorCount / 2.45, (crcErrorCount - clearLinesCount) / 2.45);
+		fprintf(stderr, "Field %6d. CRC errors: %d(%d) - %.2f%%(%.2f%%)\n", frameCount, crcErrorCount, crcErrorCount - clearLinesCount, crcErrorCount / 2.45, (crcErrorCount - clearLinesCount) / 2.45);
   }
 
   crcAllErrorCount += crcErrorCount;
@@ -248,7 +254,7 @@ void readPCMFrame(cv::Mat frame, uint8_t offset){
 #define HEADER_Q_COR 1       // 0 - enabled
 #define HEADER_PREEMPHASIS 0 // 0 - enabled
 
-inline void writeLine(cv::Mat frame, uint8_t offset, uint8_t *data)
+inline void writeLine(cv::Mat frame, uint16_t offset, uint8_t *data)
 {
   // sync
   frame.at<uchar>(cv::Point(1, offset)) = PCM_PIXEL_1;
@@ -269,9 +275,6 @@ inline void writeLine(cv::Mat frame, uint8_t offset, uint8_t *data)
 
 void writePCMFrame(cv::Mat frame, uint8_t offset, bool full){
 	int16_t headerLines = 2;
-  uint8_t header[16] = {0};
-  header[0] = 0b11001100;
-  header[6] = 0b00001100;
   header[13] = (1 << HEADER_COPY) | (1 << HEADER_P_COR) | (1 << HEADER_Q_COR) | (1 << HEADER_PREEMPHASIS);
   uint16_t crc = Calculate_CRC_CCITT(header, 14);
   header[14] = crc >> 8;
@@ -286,16 +289,13 @@ void writePCMFrame(cv::Mat frame, uint8_t offset, bool full){
 		pcmLinePtr[14] = crc >> 8;
 		pcmLinePtr[15] = crc & 0xff;
 
-		writeLine(frame, (pcmLine * 2) + offset + headerLines, pcmLinePtr);
-
-
-
+		writeLine(frame, ((pcmLine * 2) + offset + headerLines), pcmLinePtr);
 	}
 }
 
 void PCMFrame2wav(SNDFILE *outfile, bool type){
   uint16_t parityError = 0;
-  static uint16_t frameCount = 0;
+  static uint16_t fieldCount = 0;
 	//fprintf(stderr, "\n");
 	//printFrame();
 	for(int j = 0; j < PCM_NTSC_HEIGHT; j++){
@@ -303,27 +303,52 @@ void PCMFrame2wav(SNDFILE *outfile, bool type){
 		readBlock(j, type);
 
 		uint8_t crcErrors = 0;
-		if (PCMFrame[j + L0_POS][16]){crcErrors++; /*fprintf(stderr, "L0\n");*/}
-		if (PCMFrame[j + R0_POS][16]){crcErrors++; /*fprintf(stderr, "R0\n");*/}
-		if (PCMFrame[j + L1_POS][16]){crcErrors++; /*fprintf(stderr, "L1\n");*/}
-    if (PCMFrame[j + R1_POS][16]){crcErrors++; /*fprintf(stderr, "R1\n");*/}
-    if (PCMFrame[j + L2_POS][16]){crcErrors++; /*fprintf(stderr, "L2\n");*/}
-    if (PCMFrame[j + R2_POS][16]){crcErrors++; /*fprintf(stderr, "R2\n");*/}
-    if (PCMFrame[j +  P_POS][16]){crcErrors++; /*fprintf(stderr, " P\n");*/}
-		//if (PCMFrame[j +  Q_POS][16]) crcErrors++;
+		if (PCMFrame[j + L0_POS][16]){crcErrors++;}
+		if (PCMFrame[j + R0_POS][16]){crcErrors++;}
+		if (PCMFrame[j + L1_POS][16]){crcErrors++;}
+    if (PCMFrame[j + R1_POS][16]){crcErrors++;}
+    if (PCMFrame[j + L2_POS][16]){crcErrors++;}
+    if (PCMFrame[j + R2_POS][16]){crcErrors++;}
+    // if (PCMFrame[j +  P_POS][16]){crcErrors++; /*fprintf(stderr, "P\n");*/}
+		// if (PCMFrame[j +  Q_POS][16]){crcErrors++; /*fprintf(stderr, "Q\n");*/}
 
 		if (crcErrors){
-      //fprintf(stderr, "Frame %6d. CRC errors: %d\n", frameCount, crcErrors);
-			uint16_t PC = L0 ^ R0 ^ L1 ^ R1 ^ L2 ^ R2;
-			if (P != PC && PCMFrame[j + P_POS][16] && crcErrors == 1){
+			//uint16_t PC = L0 ^ R0 ^ L1 ^ R1 ^ L2 ^ R2;
+			if (!PCMFrame[j + P_POS][16] && crcErrors == 1){
 				parityError++;
-				if (PCMFrame[j + L0_POS][16]){L0 = P  ^ R0 ^ L1 ^ R1 ^ L2 ^ R2;}
-				if (PCMFrame[j + R0_POS][16]){R0 = L0 ^ P  ^ L1 ^ R1 ^ L2 ^ R2;}
-				if (PCMFrame[j + L1_POS][16]){L1 = L0 ^ R0 ^ P  ^ R1 ^ L2 ^ R2;}
-				if (PCMFrame[j + R1_POS][16]){R1 = L0 ^ R0 ^ L1 ^ P  ^ L2 ^ R2;}
-				if (PCMFrame[j + L2_POS][16]){L2 = L0 ^ R0 ^ L1 ^ R1 ^ P  ^ R2;}
-				if (PCMFrame[j + R2_POS][16]){R2 = L0 ^ R0 ^ L1 ^ R1 ^ L2 ^ P ;}
-			}
+				if (PCMFrame[j + L0_POS][16]){
+          //fprintf(stderr, "L0 0x%04x -> ", L0);
+          L0 = P  ^ R0 ^ L1 ^ R1 ^ L2 ^ R2;
+          //fprintf(stderr, "0x%04x\n", L0);
+        }
+				if (PCMFrame[j + R0_POS][16]){
+          //fprintf(stderr, "R0 0x%04x -> ", R0);
+          R0 = L0 ^ P  ^ L1 ^ R1 ^ L2 ^ R2;
+          //fprintf(stderr, "0x%04x\n", R0);
+        }
+				if (PCMFrame[j + L1_POS][16]){
+          //fprintf(stderr, "L1 0x%04x -> ", L1);
+          L1 = L0 ^ R0 ^ P  ^ R1 ^ L2 ^ R2;
+          //fprintf(stderr, "0x%04x\n", L1);
+        }
+				if (PCMFrame[j + R1_POS][16]){
+          //fprintf(stderr, "R1 0x%04x -> ", R1);
+          R1 = L0 ^ R0 ^ L1 ^ P  ^ L2 ^ R2;
+          //fprintf(stderr, "0x%04x\n", R1);
+        }
+				if (PCMFrame[j + L2_POS][16]){
+          //fprintf(stderr, "L2 0x%04x -> ", L2);
+          L2 = L0 ^ R0 ^ L1 ^ R1 ^ P  ^ R2;
+          //fprintf(stderr, "0x%04x\n", L2);
+        }
+				if (PCMFrame[j + R2_POS][16]){
+          //fprintf(stderr, "R2 0x%04x -> ", R2);
+          R2 = L0 ^ R0 ^ L1 ^ R1 ^ L2 ^ P ;
+          //fprintf(stderr, "0x%04x\n", R2);
+        }
+			} else {
+        fprintf(stderr, "Field %6d, stairs %d. CRC errors: %d\n", fieldCount, j, crcErrors);
+      }
 		}
 
 		sf_write_short(outfile, (int16_t *)buf, 6);
@@ -331,9 +356,9 @@ void PCMFrame2wav(SNDFILE *outfile, bool type){
   if (parityError){
     //printFrame();
     parityErrorCount += parityError;
-    //fprintf(stderr, "Frame %6d. Parity errors: %d\n", frameCount, parityError);
+    //fprintf(stderr, "Field %6d. Parity errors: %d\n", fieldCount, parityError);
   }
-  frameCount++;
+  fieldCount++;
 }
 
 void copyOutBuffer(void){
@@ -366,6 +391,7 @@ uint32_t samplesCount(void){
 }
 
 void printFrame(void){
+  /*
 	for(int j = 0; j < PCM_FRAME_HEIGHT; j++){
     fprintf(stderr, "line %03d ", j);
 		for(int i = 0; i < PCM_FRAME_WIDTH; i++){
@@ -373,6 +399,23 @@ void printFrame(void){
 		}
 		fprintf(stderr, "\n");
 	}
+  */
+	for(int j = 109; j < 113; j++){
+    fprintf(stderr, "line %03d ", j);
+		for(int i = 0; i < PCM_FRAME_WIDTH; i++){
+			fprintf(stderr, "%02x ", PCMFrame[j][i]);
+		}
+		fprintf(stderr, "\n");
+	}
+
+	for(int j = PCM_FRAME_HEIGHT - 5; j < PCM_FRAME_HEIGHT; j++){
+    fprintf(stderr, "line %03d ", j);
+		for(int i = 0; i < PCM_FRAME_WIDTH; i++){
+			fprintf(stderr, "%02x ", PCMFrame[j][i]);
+		}
+		fprintf(stderr, "\n");
+	}
+
 	fprintf(stderr, "\n");
 }
 
