@@ -8,7 +8,7 @@ LDFLAGS+= -lopencv_video
 #LDFLAGS+= -lopencv_videoio
 LDFLAGS+= -lsndfile
 
-SOURCES=video.cpp pcm.cpp crc.cpp
+SOURCES=video.cpp pcm.cpp crc.cpp q_correction.cpp
 OBJECTS=$(SOURCES:.cpp=.o)
 
 EXECUTABLE=ggg

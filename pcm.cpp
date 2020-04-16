@@ -348,6 +348,125 @@ void PCMFrame2wav(SNDFILE *outfile, bool type){
         }
 			} else {
         fprintf(stderr, "Field %6d, stairs %d. CRC errors: %d\n", fieldCount, j, crcErrors);
+        fprintf(stderr, "Use Q correction\n");
+        uint16_t Sp = L0 ^ R0 ^ L1 ^ R1 ^ L2 ^ R2 ^ P;
+        uint16_t Sq = qCorTS(6, L0) ^ qCorTS(5, R0) ^ qCorTS(4, L1) ^ qCorTS(3, R1) ^ qCorTS(2, L2) ^ qCorTS(1, R2) ^ Q;
+
+        if (PCMFrame[j + L0_POS][16] & PCMFrame[j + R0_POS][16]){ // L0 R0
+          fprintf(stderr, "L0 R0\n");
+          uint16_t E1 = qCorMul(T_I_m1, Sp ^ qCorMul(T_m5, Sq));
+          uint16_t E2 = E1 ^ Sp;
+          L0 ^= E1;
+          R0 ^= E2;
+        } else if (PCMFrame[j + R0_POS][16] & PCMFrame[j + L1_POS][16]){ // R0 L1
+          fprintf(stderr, "R0 L1\n");
+          uint16_t E1 = qCorMul(T_I_m1, Sp ^ qCorMul(T_m4, Sq));
+          uint16_t E2 = E1 ^ Sp;
+          R0 ^= E1;
+          L1 ^= E2;
+        } else if (PCMFrame[j + L1_POS][16] & PCMFrame[j + R1_POS][16]){ // L1 R1
+          fprintf(stderr, "L1 R1\n");
+          uint16_t E1 = qCorMul(T_I_m1, Sp ^ qCorMul(T_m3, Sq));
+          uint16_t E2 = E1 ^ Sp;
+          L1 ^= E1;
+          R1 ^= E2;
+        } else if (PCMFrame[j + R1_POS][16] & PCMFrame[j + L2_POS][16]){ // R1 L2
+          fprintf(stderr, "R1 L2\n");
+          uint16_t E1 = qCorMul(T_I_m1, Sp ^ qCorMul(T_m2, Sq));
+          uint16_t E2 = E1 ^ Sp;
+          R1 ^= E1;
+          L2 ^= E2;
+        } else if (PCMFrame[j + L2_POS][16] & PCMFrame[j + R2_POS][16]){ // L2 R2
+          fprintf(stderr, "L2 R2\n");
+          uint16_t E1 = qCorMul(T_I_m1, Sp ^ qCorMul(T_m1, Sq));
+          uint16_t E2 = E1 ^ Sp;
+          L2 ^= E1;
+          R2 ^= E2;
+        } else if (PCMFrame[j + R2_POS][16] & PCMFrame[j + P_POS][16]){ // R2 P
+          fprintf(stderr, "R2 P\n");
+          uint16_t E1 = qCorMul(T_m1, Sq);
+          R2 ^= E1;
+        } else if (PCMFrame[j + L0_POS][16] & PCMFrame[j + L1_POS][16]){ // L0 L1
+          fprintf(stderr, "L0 L1\n");
+          uint16_t E1 = qCorMul(T2_I_m1, Sp ^ qCorMul(T_m4, Sq));
+          uint16_t E2 = E1 ^ Sp;
+          L0 ^= E1;
+          L1 ^= E2;
+        } else if (PCMFrame[j + R0_POS][16] & PCMFrame[j + R1_POS][16]){ // R0 R1
+          fprintf(stderr, "R1 R1\n");
+          uint16_t E1 = qCorMul(T2_I_m1, Sp ^ qCorMul(T_m3, Sq));
+          uint16_t E2 = E1 ^ Sp;
+          R0 ^= E1;
+          R1 ^= E2;
+        } else if (PCMFrame[j + L1_POS][16] & PCMFrame[j + L2_POS][16]){ // L1 L2
+          fprintf(stderr, "L1 L2\n");
+          uint16_t E1 = qCorMul(T2_I_m1, Sp ^ qCorMul(T_m2, Sq));
+          uint16_t E2 = E1 ^ Sp;
+          L1 ^= E1;
+          L2 ^= E2;
+        } else if (PCMFrame[j + R1_POS][16] & PCMFrame[j + R2_POS][16]){ // R1 R2
+          fprintf(stderr, "R1 R2\n");
+          uint16_t E1 = qCorMul(T2_I_m1, Sp ^ qCorMul(T_m1, Sq));
+          uint16_t E2 = E1 ^ Sp;
+          R1 ^= E1;
+          R2 ^= E2;
+        } else if (PCMFrame[j + L2_POS][16] & PCMFrame[j + P_POS][16]){ // L2 P
+          fprintf(stderr, "L2 P\n");
+          uint16_t E1 = qCorMul(T_m2, Sq);
+          L2 ^= E1;
+        } else if (PCMFrame[j + L0_POS][16] & PCMFrame[j + R1_POS][16]){ // L0 R1
+          fprintf(stderr, "L0 R1\n");
+          uint16_t E1 = qCorMul(T3_I_m1, Sp ^ qCorMul(T_m3, Sq));
+          uint16_t E2 = E1 ^ Sp;
+          L0 ^= E1;
+          R1 ^= E2;
+        } else if (PCMFrame[j + R0_POS][16] & PCMFrame[j + L2_POS][16]){ // R0 L2
+          fprintf(stderr, "R0 L2\n");
+          uint16_t E1 = qCorMul(T3_I_m1, Sp ^ qCorMul(T_m2, Sq));
+          uint16_t E2 = E1 ^ Sp;
+          R0 ^= E1;
+          L2 ^= E2;
+        } else if (PCMFrame[j + L1_POS][16] & PCMFrame[j + R2_POS][16]){ // L1 R2
+          fprintf(stderr, "L1 R2\n");
+          uint16_t E1 = qCorMul(T3_I_m1, Sp ^ qCorMul(T_m1, Sq));
+          uint16_t E2 = E1 ^ Sp;
+          L1 ^= E1;
+          R2 ^= E2;
+        } else if (PCMFrame[j + R1_POS][16] & PCMFrame[j + P_POS][16]){ // R1 P
+          fprintf(stderr, "R1 P\n");
+          uint16_t E1 = qCorMul(T_m3, Sq);
+          R1 ^= E1;
+        } else if (PCMFrame[j + L0_POS][16] & PCMFrame[j + L2_POS][16]){ // L0 L2
+          fprintf(stderr, "L0 L2\n");
+          uint16_t E1 = qCorMul(T4_I_m1, Sp ^ qCorMul(T_m2, Sq));
+          uint16_t E2 = E1 ^ Sp;
+          L0 ^= E1;
+          L2 ^= E2;
+        } else if (PCMFrame[j + R0_POS][16] & PCMFrame[j + R2_POS][16]){ // R0 R2
+          fprintf(stderr, "R0 R2\n");
+          uint16_t E1 = qCorMul(T4_I_m1, Sp ^ qCorMul(T_m1, Sq));
+          uint16_t E2 = E1 ^ Sp;
+          R0 ^= E1;
+          R2 ^= E2;
+        } else if (PCMFrame[j + L1_POS][16] & PCMFrame[j + P_POS][16]){ // L1 P
+          fprintf(stderr, "L1 P\n");
+          uint16_t E1 = qCorMul(T_m4, Sq);
+          L1 ^= E1;
+        } else if (PCMFrame[j + L0_POS][16] & PCMFrame[j + R2_POS][16]){ // L0 R2
+          fprintf(stderr, "L0 R2\n");
+          uint16_t E1 = qCorMul(T5_I_m1, Sp ^ qCorMul(T_m1, Sq));
+          uint16_t E2 = E1 ^ Sp;
+          L0 ^= E1;
+          R2 ^= E2;
+        } else if (PCMFrame[j + R0_POS][16] & PCMFrame[j + P_POS][16]){ // R0 P
+          fprintf(stderr, "R0 P\n");
+          uint16_t E1 = qCorMul(T_m5, Sq);
+          R0 ^= E1;
+        } else if (PCMFrame[j + L0_POS][16] & PCMFrame[j + P_POS][16]){ // L0 P
+          fprintf(stderr, "L0 P\n");
+          uint16_t E1 = qCorMul(T_m6, Sq);
+          L0 ^= E1;
+        }
       }
 		}
 

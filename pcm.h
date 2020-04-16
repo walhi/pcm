@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <sndfile.h>
 #include "crc.h"
-
+#include "q_correction.h"
 #include <bitset>
 
 #define PCM_NTSC_HEIGHT 245
