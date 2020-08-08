@@ -6,14 +6,16 @@ LDFLAGS=  -lopencv_core
 LDFLAGS+= -lopencv_imgproc
 LDFLAGS+= -lopencv_highgui
 LDFLAGS+= -lopencv_video
+LDFLAGS+= -lopencv_videoio
 LDFLAGS+= -lsndfile
 
 SOURCES=generate.cpp
 SOURCES+=../pcm.cpp
 SOURCES+=../crc.cpp
+SOURCES+=../q_correction.cpp
 OBJECTS=$(SOURCES:.cpp=.o)
 
-EXECUTABLE=ggg
+EXECUTABLE=encoder
 
 all: $(SOURCES) $(EXECUTABLE)
 
@@ -23,3 +25,6 @@ $(EXECUTABLE): $(OBJECTS)
 
 .cpp.o:
 	$(CC) $(CFLAGS) $< -o $@
+
+clean:
+	rm *.o

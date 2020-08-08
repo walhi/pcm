@@ -223,6 +223,6 @@ const uint16_t T5_I_m1[14] = {
 uint16_t qCorMul(const uint16_t *m, uint16_t v);
 
 // T^{x} * Sample
-  uint16_t qCorTS(uint8_t x, uint16_t s);
+uint16_t qCorTS(uint8_t x, uint16_t s);
 
 #endif

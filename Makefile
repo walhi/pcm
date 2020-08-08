@@ -5,13 +5,13 @@ LDFLAGS=  -lopencv_core
 LDFLAGS+= -lopencv_imgproc
 LDFLAGS+= -lopencv_highgui
 LDFLAGS+= -lopencv_video
-#LDFLAGS+= -lopencv_videoio
+LDFLAGS+= -lopencv_videoio
 LDFLAGS+= -lsndfile
 
 SOURCES=video.cpp pcm.cpp crc.cpp q_correction.cpp
 OBJECTS=$(SOURCES:.cpp=.o)
 
-EXECUTABLE=ggg
+EXECUTABLE=decoder
 
 all: $(SOURCES) $(EXECUTABLE)
 

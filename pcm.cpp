@@ -38,7 +38,7 @@ uint16_t Q;
 
 uint8_t header[16] = {0b11001100, 0, 0, 0, 0, 0, 0b00001100};
 
-void readBlock(uint16_t j, bool type){
+void readBlock(uint16_t j, bool m16bit){
 	L0 = (( PCMFrame[j + L0_POS][0] << 6)          | (PCMFrame[j + L0_POS][1] >> 2)) << 2;
 	R0 = (((PCMFrame[j + R0_POS][1] & 0x03) << 12) | (PCMFrame[j + R0_POS][2] << 4) | ((PCMFrame[j + R0_POS][3] >> 4) & 0x0f)) << 2;
 	L1 = (((PCMFrame[j + L1_POS][3] & 0x0f) << 10) | (PCMFrame[j + L1_POS][4] << 2) | ((PCMFrame[j + L1_POS][5] >> 6) & 0x03)) << 2;
@@ -49,7 +49,7 @@ void readBlock(uint16_t j, bool type){
 	Q  = (((PCMFrame[j + Q_POS][12] & 0x3f) << 8) | (PCMFrame[j + Q_POS][13])) << 2;
 
 	// 16 бит PCM
-	if (type){
+	if (m16bit){
 		L0 |= (PCMFrame[j + L0_POS][12] >> 4) & 0x03;
 		R0 |= (PCMFrame[j + R0_POS][12] >> 2) & 0x03;
 		L1 |= (PCMFrame[j + L1_POS][12] >> 0) & 0x03;
@@ -240,7 +240,7 @@ void readPCMFrame(cv::Mat frame, uint8_t offset){
   }
   */
 
-  if (crcErrorCount){
+  if (crcErrorCount - clearLinesCount){
 		fprintf(stderr, "Field %6d. CRC errors: %d(%d) - %.2f%%(%.2f%%)\n", frameCount, crcErrorCount, crcErrorCount - clearLinesCount, crcErrorCount / 2.45, (crcErrorCount - clearLinesCount) / 2.45);
   }
 
@@ -293,14 +293,14 @@ void writePCMFrame(cv::Mat frame, uint8_t offset, bool full){
 	}
 }
 
-void PCMFrame2wav(SNDFILE *outfile, bool type){
+void PCMFrame2wav(SNDFILE *outfile, bool m16bit){
   uint16_t parityError = 0;
   static uint16_t fieldCount = 0;
 	//fprintf(stderr, "\n");
 	//printFrame();
 	for(int j = 0; j < PCM_NTSC_HEIGHT; j++){
 		stairsCount++;
-		readBlock(j, type);
+		readBlock(j, m16bit);
 
 		uint8_t crcErrors = 0;
 		if (PCMFrame[j + L0_POS][16]){crcErrors++;}
@@ -346,7 +346,7 @@ void PCMFrame2wav(SNDFILE *outfile, bool type){
           R2 = L0 ^ R0 ^ L1 ^ R1 ^ L2 ^ P ;
           //fprintf(stderr, "0x%04x\n", R2);
         }
-			} else {
+			} else if (!m16bit) {
         fprintf(stderr, "Field %6d, stairs %d. CRC errors: %d\n", fieldCount, j, crcErrors);
         fprintf(stderr, "Use Q correction\n");
         uint16_t Sp = L0 ^ R0 ^ L1 ^ R1 ^ L2 ^ R2 ^ P;
